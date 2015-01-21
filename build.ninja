@@ -3,8 +3,9 @@ cxx = c++
 ld = $cc
 ldxx = $cxx
 ar = ar
-cflags = -Ideps/json-parser -Wall -Wextra -g3 -Os
+cflags = -Ideps/parson -Wall -Wextra -g3 -O0
 ldflags =
+builddir = build
 
 rule cc
   command = $cc $cflags -c $in -o $out
@@ -12,6 +13,10 @@ rule cc
 rule ld
   command = $ld $ldflags $in -o $out
 
-build build/json.o: cc deps/json-parser/json.c
+# json-parser
+build build/json.o: cc deps/parson/parson.c
+
+# pyg
 build build/pyg.o: cc src/pyg.c
+
 build pyg: ld build/pyg.o build/json.o
