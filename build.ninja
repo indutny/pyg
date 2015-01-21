@@ -1,0 +1,17 @@
+cc = cc
+cxx = c++
+ld = $cc
+ldxx = $cxx
+ar = ar
+cflags = -Ideps/json-parser -Wall -Wextra -g3 -Os
+ldflags =
+
+rule cc
+  command = $cc $cflags -c $in -o $out
+
+rule ld
+  command = $ld $ldflags $in -o $out
+
+build build/json.o: cc deps/json-parser/json.c
+build build/pyg.o: cc src/pyg.c
+build pyg: ld build/pyg.o build/json.o
