@@ -1,23 +1,23 @@
-#include "parson.h"
+#include "src/pyg.h"
 
-#include <getopt.h>
-#include <stdio.h>
+#include <stdlib.h>
 
-int main(int argc, char** argv) {
-  JSON_Value* json;
+pyg_t* pyg_new(JSON_Value* json) {
+  pyg_t* res;
 
-  if (argc < 2) {
-    fprintf(stderr, "Usage:\n  %s file.gyp\n", argv[0]);
-    return -1;
-  }
+  res = calloc(1, sizeof(*res));
+  if (res == NULL)
+    return NULL;
 
-  json = json_parse_file_with_comments(argv[1]);
-  if (json == NULL) {
-    fprintf(stderr, "Failed to parse JSON in %s\n", argv[1]);
-    return -1;
-  }
+  res->json = json;
 
-  json_value_free(json);
+  return res;
+}
 
-  return 0;
+
+void pyg_free(pyg_t* pyg) {
+  json_value_free(pyg->json);
+  pyg->json = NULL;
+
+  free(pyg);
 }
