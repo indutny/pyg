@@ -17,6 +17,6 @@ struct pyg_s {
 pyg_t* pyg_new(JSON_Value* json);
 void pyg_free(pyg_t* pyg);
 
-char* pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf);
+pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf);
 
 #endif  /* SRC_PYG_H_ */

@@ -26,6 +26,6 @@ void pyg_free(pyg_t* pyg) {
 }
 
 
-char* pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf) {
-  return NULL;
+pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf) {
+  return pyg_ok();
 }

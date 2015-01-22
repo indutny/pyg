@@ -1,4 +1,5 @@
 #include "src/common.h"
+#include "src/error.h"
 #include "src/pyg.h"
 #include "src/generator/ninja.h"
 
@@ -14,7 +15,8 @@ int main(int argc, char** argv) {
   JSON_Value* json;
   pyg_t* pyg;
   pyg_buf_t buf;
-  int err;
+  pyg_error_t err;
+  int r;
 
   if (argc < 2) {
     fprintf(stderr, "Usage:\n  %s file.gyp\n", argv[0]);
@@ -27,8 +29,8 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  err = pyg_buf_init(&buf, kPygBufferSize);
-  if (err != 0) {
+  r = pyg_buf_init(&buf, kPygBufferSize);
+  if (r != 0) {
     fprintf(stderr, "Failed to initialize write buffer\n");
     goto failed_buf_init;
   }
@@ -39,9 +41,19 @@ int main(int argc, char** argv) {
     goto failed_pyg_new;
   }
 
-  pyg_translate(pyg, &pyg_gen_ninja, &buf);
+  err = pyg_translate(pyg, &pyg_gen_ninja, &buf);
+
+  if (!pyg_is_ok(err)) {
+    pyg_error_print(err, stderr);
+    return -1;
+  }
 
   pyg_free(pyg);
+
+  /* Print output */
+  pyg_buf_print(&buf, stdout);
+
+  pyg_buf_destroy(&buf);
 
   return 0;
 

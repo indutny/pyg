@@ -9,20 +9,23 @@ ldflags = $flags
 builddir = build
 
 rule cc
-  command = $cc $cflags -c $in -o $out
+  command = $cc -MMD -MF $out.d $cflags -c $in -o $out
+  description = CC $in
+  depfile = $out.d
+  deps = gcc
 
 rule ld
+  description = LD $in => $out
   command = $ld $ldflags $in -o $out
 
 # json-parser
-build build/json.o: cc deps/parson/parson.c | deps/parson/parson.h
+build build/json.o: cc deps/parson/parson.c
 
 # pyg
-build build/common.o: cc src/common.c | src/common.h
-build build/error.o: cc src/error.c | src/error.h
-build build/pyg.o: cc src/pyg.c | src/pyg.h src/common.h
-build build/generator/ninja.o: cc src/generator/ninja.c | $
-    src/generator/ninja.h src/generator/base.h
+build build/common.o: cc src/common.c
+build build/error.o: cc src/error.c
+build build/pyg.o: cc src/pyg.c
+build build/generator/ninja.o: cc src/generator/ninja.c
 build build/cli.o: cc src/cli.c
 
 build pyg: ld build/cli.o build/pyg.o build/common.o build/error.o $

@@ -4,6 +4,7 @@
 #include "src/error.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 typedef struct pyg_hashmap_s pyg_hashmap_t;
 typedef struct pyg_hashmap_item_s pyg_hashmap_item_t;
@@ -48,6 +49,7 @@ struct pyg_buf_s {
 int pyg_buf_init(pyg_buf_t* buf, unsigned int size);
 void pyg_buf_destroy(pyg_buf_t* buf);
 int pyg_buf_put(pyg_buf_t* buf, char* fmt, ...);
+void pyg_buf_print(pyg_buf_t* buf, FILE* out);
 
 #define UNREACHABLE() do { abort(); } while (0)
 

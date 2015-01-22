@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -271,4 +272,9 @@ int pyg_buf_put(pyg_buf_t* buf, char* fmt, ...) {
   buf->off += r;
 
   return 0;
+}
+
+
+void pyg_buf_print(pyg_buf_t* buf, FILE* out) {
+  fprintf(out, "%.*s\n", buf->size, buf->buf);
 }
