@@ -1,5 +1,6 @@
 #include "src/pyg.h"
 #include "src/common.h"
+#include "src/generator/base.h"
 
 #include "parson.h"
 
@@ -26,6 +27,6 @@ void pyg_free(pyg_t* pyg) {
 }
 
 
-pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf) {
+pyg_error_t pyg_translate(pyg_t* pyg, pyg_gen_t* gen, pyg_buf_t* buf) {
   return pyg_ok();
 }

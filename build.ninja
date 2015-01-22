@@ -30,3 +30,7 @@ build build/cli.o: cc src/cli.c
 
 build pyg: ld build/cli.o build/pyg.o build/common.o build/error.o $
     build/generator/ninja.o build/json.o
+
+build all: phony pyg
+
+default all
