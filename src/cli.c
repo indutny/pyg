@@ -1,4 +1,6 @@
+#include "src/common.h"
 #include "src/pyg.h"
+#include "src/generator/ninja.h"
 
 #include "parson.h"
 
@@ -6,9 +8,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static const int kPygBufferSize = 1024 * 1024;
+
 int main(int argc, char** argv) {
   JSON_Value* json;
   pyg_t* pyg;
+  pyg_buf_t buf;
+  int err;
 
   if (argc < 2) {
     fprintf(stderr, "Usage:\n  %s file.gyp\n", argv[0]);
@@ -21,13 +27,29 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  err = pyg_buf_init(&buf, kPygBufferSize);
+  if (err != 0) {
+    fprintf(stderr, "Failed to initialize write buffer\n");
+    goto failed_buf_init;
+  }
+
   pyg = pyg_new(json);
   if (pyg == NULL) {
     fprintf(stderr, "Failed to allocate pyg_t\n");
-    return -1;
+    goto failed_pyg_new;
   }
+
+  pyg_translate(pyg, &pyg_gen_ninja, &buf);
 
   pyg_free(pyg);
 
   return 0;
+
+failed_pyg_new:
+  pyg_buf_destroy(&buf);
+
+failed_buf_init:
+  json_value_free(json);
+
+  return -1;
 }

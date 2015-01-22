@@ -20,7 +20,10 @@ build build/json.o: cc deps/parson/parson.c | deps/parson/parson.h
 # pyg
 build build/common.o: cc src/common.c | src/common.h
 build build/error.o: cc src/error.c | src/error.h
-build build/pyg.o: cc src/pyg.c | src/pyg.h
+build build/pyg.o: cc src/pyg.c | src/pyg.h src/common.h
+build build/generator/ninja.o: cc src/generator/ninja.c | $
+    src/generator/ninja.h src/generator/base.h
 build build/cli.o: cc src/cli.c
 
-build pyg: ld build/cli.o build/pyg.o build/common.o build/error.o build/json.o
+build pyg: ld build/cli.o build/pyg.o build/common.o build/error.o $
+    build/generator/ninja.o build/json.o

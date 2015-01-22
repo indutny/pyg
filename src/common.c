@@ -1,6 +1,8 @@
 #include "src/common.h"
 #include "src/error.h"
 
+#include <assert.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -206,4 +208,67 @@ pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
   }
 
   return pyg_ok();
+}
+
+
+int pyg_buf_init(pyg_buf_t* buf, unsigned int size) {
+  buf->size = size;
+  buf->off = 0;
+
+  /* Trailing zero in snprintf */
+  buf->buf = malloc(size);
+  if (buf->buf == NULL)
+    return -1;
+
+  return 0;
+}
+
+
+void pyg_buf_destroy(pyg_buf_t* buf) {
+  free(buf->buf);
+  buf->buf = NULL;
+}
+
+
+int pyg_buf_put(pyg_buf_t* buf, char* fmt, ...) {
+  va_list ap_orig;
+  va_list ap;
+  int r;
+
+  va_start(ap_orig, fmt);
+
+  do {
+    char* tmp;
+
+    /* Copy the vararg to retry writing in case of failure */
+    va_copy(ap, ap_orig);
+
+    r = vsnprintf(buf->buf + buf->off, buf->size - buf->off, fmt, ap);
+    assert(r >= 0);
+
+    /* Whole string was written */
+    if ((unsigned int) r + 1 <= buf->size - buf->off)
+      break;
+
+    /* Realloc is needed */
+    tmp = malloc(buf->size * 2);
+    if (tmp == NULL)
+      return -1;
+
+    memcpy(tmp, buf->buf, buf->size);
+    free(buf->buf);
+    buf->buf = tmp;
+    buf->size = buf->size * 2;
+
+    /* Retry */
+    va_end(ap);
+  } while (1);
+
+  /* Success */
+  va_end(ap);
+  va_end(ap_orig);
+
+  buf->off += r;
+
+  return 0;
 }

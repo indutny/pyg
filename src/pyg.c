@@ -1,4 +1,7 @@
 #include "src/pyg.h"
+#include "src/common.h"
+
+#include "parson.h"
 
 #include <stdlib.h>
 
@@ -20,4 +23,9 @@ void pyg_free(pyg_t* pyg) {
   pyg->json = NULL;
 
   free(pyg);
+}
+
+
+char* pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf) {
+  return NULL;
 }
