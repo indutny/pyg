@@ -6,14 +6,17 @@
 typedef struct pyg_error_s pyg_error_t;
 
 #define PYG_ERROR_ENUM(X)                                                     \
-  X(NoMem)                                                                    \
+    X(NoMem)                                                                  \
+    X(JSON)                                                                   \
 
-#define PYG_DEFINE_ERROR(V) kPygErr##V
+#define PYG_DEFINE_ERROR(V) kPygErr##V,
 
 enum pyg_error_code_s {
   kPygOk,
 
   PYG_ERROR_ENUM(PYG_DEFINE_ERROR)
+
+  kPygErrLast
 };
 
 #undef PYG_DEFINE_ERROR
@@ -23,19 +26,15 @@ typedef enum pyg_error_code_s pyg_error_code_t;
 
 struct pyg_error_s {
   pyg_error_code_t code;
-  union {
-    const char* str;
-    int ret;
-  } data;
+  const char* str;
 };
 
 
 #define pyg_is_ok(err) ((err).code == kPygOk)
-#define pyg_ok() ((pyg_error_t) { .code = kPygOk, .data = { .ret = 0 } })
+#define pyg_ok() ((pyg_error_t) { .code = kPygOk, .str = 0 })
 
 pyg_error_t pyg_error(pyg_error_code_t code);
 pyg_error_t pyg_error_str(pyg_error_code_t code, const char* str);
-pyg_error_t pyg_error_num(pyg_error_code_t code, int ret);
 const char* pyg_error_code_to_str(pyg_error_code_t code);
 void pyg_error_print(pyg_error_t err, FILE* out);
 

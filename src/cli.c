@@ -13,6 +13,7 @@ static const int kPygBufferSize = 1024 * 1024;
 
 int main(int argc, char** argv) {
   JSON_Value* json;
+  JSON_Object* json_obj;
   pyg_t* pyg;
   pyg_buf_t buf;
   pyg_error_t err;
@@ -29,13 +30,20 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  r = pyg_buf_init(&buf, kPygBufferSize);
-  if (r != 0) {
-    fprintf(stderr, "Failed to initialize write buffer\n");
-    goto failed_buf_init;
+  r = -1;
+  json_obj = json_object(json);
+  if (json == NULL) {
+    fprintf(stderr, "Failed to parse JSON in %s: not object\n", argv[1]);
+    goto failed_to_object;
   }
 
-  pyg = pyg_new(json);
+  err = pyg_buf_init(&buf, kPygBufferSize);
+  if (!pyg_is_ok(err)) {
+    pyg_error_print(err, stderr);
+    goto failed_to_object;
+  }
+
+  pyg = pyg_new(json_obj);
   if (pyg == NULL) {
     fprintf(stderr, "Failed to allocate pyg_t\n");
     goto failed_pyg_new;
@@ -53,15 +61,13 @@ int main(int argc, char** argv) {
   /* Print output */
   pyg_buf_print(&buf, stdout);
 
-  pyg_buf_destroy(&buf);
-
-  return 0;
+  r = 0;
 
 failed_pyg_new:
   pyg_buf_destroy(&buf);
 
-failed_buf_init:
+failed_to_object:
   json_value_free(json);
 
-  return -1;
+  return r;
 }

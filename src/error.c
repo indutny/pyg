@@ -2,17 +2,12 @@
 #include "src/common.h"
 
 pyg_error_t pyg_error(pyg_error_code_t code) {
-  return (pyg_error_t) { .code = code, .data = { .ret = 0 } };
+  return (pyg_error_t) { .code = code, .str = NULL };
 }
 
 
 pyg_error_t pyg_error_str(pyg_error_code_t code, const char* str) {
-  return (pyg_error_t) { .code = code, .data = { .str = str } };
-}
-
-
-pyg_error_t pyg_error_num(pyg_error_code_t code, int ret) {
-  return (pyg_error_t) { .code = code, .data = { .ret = ret } };
+  return (pyg_error_t) { .code = code, .str = str };
 }
 
 
@@ -22,6 +17,8 @@ const char* pyg_error_code_to_str(pyg_error_code_t code) {
   switch (code) {
     case kPygOk:
       return "ok";
+    case kPygErrLast:
+      UNREACHABLE();
     PYG_ERROR_ENUM(PYG_ERR_CODE_TO_STR)
   }
 
@@ -30,5 +27,5 @@ const char* pyg_error_code_to_str(pyg_error_code_t code) {
 
 
 void pyg_error_print(pyg_error_t err, FILE* out) {
-  fprintf(out, "Error: %s\n", pyg_error_code_to_str(err.code));
+  fprintf(out, "Error: %s (%s)\n", pyg_error_code_to_str(err.code), err.str);
 }

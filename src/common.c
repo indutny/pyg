@@ -1,6 +1,8 @@
 #include "src/common.h"
 #include "src/error.h"
 
+#include "parson.h"
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -212,16 +214,16 @@ pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
 }
 
 
-int pyg_buf_init(pyg_buf_t* buf, unsigned int size) {
+pyg_error_t pyg_buf_init(pyg_buf_t* buf, unsigned int size) {
   buf->size = size;
   buf->off = 0;
 
   /* Trailing zero in snprintf */
   buf->buf = malloc(size);
   if (buf->buf == NULL)
-    return -1;
+    return pyg_error_str(kPygErrNoMem, "pyg_buf_t init");
 
-  return 0;
+  return pyg_ok();
 }
 
 
@@ -231,7 +233,7 @@ void pyg_buf_destroy(pyg_buf_t* buf) {
 }
 
 
-int pyg_buf_put(pyg_buf_t* buf, char* fmt, ...) {
+pyg_error_t pyg_buf_put(pyg_buf_t* buf, char* fmt, ...) {
   va_list ap_orig;
   va_list ap;
   int r;
@@ -254,7 +256,7 @@ int pyg_buf_put(pyg_buf_t* buf, char* fmt, ...) {
     /* Realloc is needed */
     tmp = malloc(buf->size * 2);
     if (tmp == NULL)
-      return -1;
+      return pyg_error_str(kPygErrNoMem, "pyg_buf_t buffer");
 
     memcpy(tmp, buf->buf, buf->size);
     free(buf->buf);
@@ -271,10 +273,45 @@ int pyg_buf_put(pyg_buf_t* buf, char* fmt, ...) {
 
   buf->off += r;
 
-  return 0;
+  return pyg_ok();
 }
 
 
 void pyg_buf_print(pyg_buf_t* buf, FILE* out) {
-  fprintf(out, "%.*s\n", buf->size, buf->buf);
+  fprintf(out, "%.*s", buf->size, buf->buf);
+}
+
+
+pyg_error_t pyg_iter_array(JSON_Array* arr,
+                           const char* label,
+                           pyg_iter_array_get_cb get,
+                           pyg_iter_array_cb cb,
+                           void* arg) {
+  size_t i;
+  size_t count;
+
+  count = json_array_get_count(arr);
+  for (i = 0; i < count; i++) {
+    void* val;
+    pyg_error_t err;
+
+    val = get(arr, i);
+    if (val == NULL) {
+      static char msg[1024];
+
+      snprintf(msg,
+               sizeof(msg),
+               "Invalid array item during iteration of `%s`[%lu]",
+               label,
+               i);
+
+      return pyg_error_str(kPygErrJSON, msg);
+    }
+
+    err = cb(val, i, count, arg);
+    if (!pyg_is_ok(err))
+      return err;
+  }
+
+  return pyg_ok();
 }

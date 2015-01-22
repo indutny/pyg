@@ -217,7 +217,7 @@ static void remove_comments(char *string, const char *start_token, const char *e
             escaped = 1;
             string++;
             continue;
-        } else if (current_char == '\"' && !escaped) {
+        } else if ((current_char == '\"' || current_char == '\'') && !escaped) {
             in_string = !in_string;
         } else if (!in_string && strncmp(string, start_token, start_token_len) == 0) {
 			for(i = 0; i < start_token_len; i++)
@@ -348,8 +348,11 @@ static JSON_Value * json_value_init_string_no_copy(const char *string) {
 
 /* Parser */
 static void skip_quotes(const char **string) {
+    char quote;
+
+    quote = **string;
     SKIP_CHAR(string);
-    while (**string != '\"') {
+    while (**string != quote) {
         if (**string == '\0')
             return;
         if (**string == '\\') {
@@ -412,6 +415,7 @@ static char* process_string(const char *input, size_t len) {
         if (*input_ptr == '\\') {
             input_ptr++;
             switch (*input_ptr) {
+                case '\'': *output_ptr = '\''; break;
                 case '\"': *output_ptr = '\"'; break;
                 case '\\': *output_ptr = '\\'; break;
                 case '/':  *output_ptr = '/';  break;
@@ -465,6 +469,7 @@ static JSON_Value * parse_value(const char **string, size_t nesting) {
             return parse_object_value(string, nesting + 1);
         case '[':
             return parse_array_value(string, nesting + 1);
+        case '\'':
         case '\"':
             return parse_string_value(string);
         case 'f': case 't':
