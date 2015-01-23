@@ -15,37 +15,65 @@ static pyg_error_t pyg_translate_target(void* val,
                                         size_t count,
                                         void* arg);
 
-pyg_t* pyg_new(JSON_Object* json, const char* path) {
+pyg_error_t pyg_new(const char* path, pyg_t** out) {
+  static char msg[1024];
+
+  pyg_error_t err;
   pyg_t* res;
   char* tmp;
 
   res = calloc(1, sizeof(*res));
   if (res == NULL)
-    return NULL;
+    return pyg_error_str(kPygErrNoMem, "pyg_t");
 
-  res->json = json;
+  res->json = json_parse_file_with_comments(path);
+  if (res->json == NULL) {
+    snprintf(msg, sizeof(msg), "Failed to parse JSON in file: %s", path);
+    err = pyg_error_str(kPygErrJSON, msg);
+    goto failed_parse_file;
+  }
+
+  res->obj = json_object(res->json);
+  if (res->obj == NULL) {
+    snprintf(msg, sizeof(msg), "JSON not object: %s", path);
+    err = pyg_error_str(kPygErrJSON, msg);
+    goto failed_to_object;
+  }
+
   res->path = path;
   tmp = pyg_dirname(res->path);
-  if (tmp == NULL)
-    goto failed_dirname;
+  if (tmp == NULL) {
+    err = pyg_error_str(kPygErrNoMem, "pyg_dirname");
+    goto failed_to_object;
+  }
 
   res->dir = pyg_realpath(tmp);
   free(tmp);
-  if (res->dir == NULL)
-    goto failed_dirname;
+  if (res->dir == NULL) {
+    err = pyg_error_str(kPygErrNoMem, "pyg_realpath");
+    goto failed_to_object;
+  }
 
-  return res;
+  *out = res;
+  return pyg_ok();
 
-failed_dirname:
+failed_to_object:
+  json_value_free(res->json);
+  res->json = NULL;
+
+failed_parse_file:
   free(res);
-  return NULL;
+  return err;
 }
 
 
 void pyg_free(pyg_t* pyg) {
-  pyg->json = NULL;
   free(pyg->dir);
   pyg->dir = NULL;
+
+  json_value_free(pyg->json);
+  pyg->json = NULL;
+  pyg->obj = NULL;
 
   free(pyg);
 }
@@ -64,7 +92,7 @@ pyg_error_t pyg_translate(pyg_t* pyg, pyg_gen_t* gen, pyg_buf_t* buf) {
   /* TODO(indutny): Support variables and target_defaults */
 
   /* Visit targets */
-  targets = json_object_get_array(pyg->json, "targets");
+  targets = json_object_get_array(pyg->obj, "targets");
   if (targets == NULL)
     return pyg_error_str(kPygErrJSON, "'targets' property not found");
 
