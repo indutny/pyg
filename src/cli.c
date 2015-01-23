@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   pyg_t* pyg;
   pyg_buf_t buf;
   pyg_error_t err;
+  const char* file;
   int r;
 
   if (argc < 2) {
@@ -24,7 +25,8 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  json = json_parse_file_with_comments(argv[1]);
+  file = argv[1];
+  json = json_parse_file_with_comments(file);
   if (json == NULL) {
     fprintf(stderr, "Failed to parse JSON in %s\n", argv[1]);
     return -1;
@@ -43,7 +45,7 @@ int main(int argc, char** argv) {
     goto failed_to_object;
   }
 
-  pyg = pyg_new(json_obj);
+  pyg = pyg_new(json_obj, file);
   if (pyg == NULL) {
     fprintf(stderr, "Failed to allocate pyg_t\n");
     goto failed_pyg_new;

@@ -65,6 +65,9 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
                            pyg_iter_array_cb cb,
                            void* arg);
 
+char* pyg_dirname(const char* path);
+char* pyg_realpath(const char* path);
+
 #define UNREACHABLE() do { abort(); } while (0)
 
 #endif  /* SRC_COMMON_H_ */

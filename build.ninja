@@ -4,7 +4,7 @@ ld = $cc
 ldxx = $cxx
 ar = ar
 flags = -g3 -O0 -std=c99
-cflags = -I. -Ideps/parson -Wall -Wextra -pedantic $flags
+cflags = -I. -Ideps/parson -Wall -Wextra -Wno-unused-parameter -pedantic $flags
 ldflags = $flags
 builddir = build
 

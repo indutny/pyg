@@ -315,3 +315,44 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
 
   return pyg_ok();
 }
+
+
+char* pyg_dirname(const char* path) {
+  const char* c;
+  char* res;
+
+  for (c = path + strlen(path); c != path; c--) {
+#ifdef _MSC_VER
+    /* Windows */
+    if (*c == '\\')
+      break;
+#else
+    /* Linux */
+    if (*c == '/')
+      break;
+#endif
+  }
+
+  if (c == path) {
+    res = malloc(2);
+    if (res == NULL)
+      return NULL;
+
+    // filename => "."
+    memcpy(res, ".", 2);
+  } else {
+    res = malloc(c - path + 1);
+    if (res == NULL)
+      return NULL;
+
+    memcpy(res, path, c - path);
+    res[c - path] = '\0';
+  }
+
+  return res;
+}
+
+
+char* pyg_realpath(const char* path) {
+  return realpath(path, NULL);
+}
