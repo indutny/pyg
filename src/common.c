@@ -180,6 +180,21 @@ pyg_error_t pyg_hashmap_insert(pyg_hashmap_t* hashmap,
 }
 
 
+void pyg_hashmap_delete(pyg_hashmap_t* hashmap,
+                        const char* key,
+                        unsigned int key_len) {
+  pyg_hashmap_item_t* item;
+
+  item = pyg_hashmap_get_int(hashmap, key, key_len, 0);
+  if (item == NULL)
+    return;
+
+  item->key = NULL;
+  item->key_len = 0;
+  item->value = NULL;
+}
+
+
 void* pyg_hashmap_get(pyg_hashmap_t* hashmap,
                       const char* key,
                       unsigned int key_len) {

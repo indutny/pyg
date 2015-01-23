@@ -22,8 +22,11 @@ struct pyg_s {
   char* path;
   char* dir;
 
+  pyg_t* root;
   pyg_t* parent;
   pyg_hashmap_t children;
+
+  pyg_hashmap_t targets;
 };
 
 struct pyg_state_s {
@@ -40,6 +43,7 @@ struct pyg_target_s {
 pyg_error_t pyg_new(const char* path, pyg_t** out);
 void pyg_free(pyg_t* pyg);
 
+pyg_error_t pyg_load(pyg_t* pyg);
 pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf);
 
 #endif  /* SRC_PYG_H_ */

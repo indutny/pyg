@@ -38,6 +38,9 @@ pyg_error_t pyg_hashmap_insert(pyg_hashmap_t* hashmap,
                                const char* key,
                                unsigned int key_len,
                                void* value);
+void pyg_hashmap_delete(pyg_hashmap_t* hashmap,
+                        const char* key,
+                        unsigned int key_len);
 void* pyg_hashmap_get(pyg_hashmap_t* hashmap,
                       const char* key,
                       unsigned int key_len);
