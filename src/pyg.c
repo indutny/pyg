@@ -5,26 +5,36 @@
 #include "parson.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 
 static const char* kPygDefaultTargetType = "executable";
+static const unsigned kPygChildrenCount = 128;
 
 
+static pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out);
+static pyg_error_t pyg_free_child(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_translate_target(void* val,
                                         size_t i,
                                         size_t count,
                                         void* arg);
 
-pyg_error_t pyg_new(const char* path, pyg_t** out) {
+pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   static char msg[1024];
 
   pyg_error_t err;
   pyg_t* res;
-  char* tmp;
 
   res = calloc(1, sizeof(*res));
   if (res == NULL)
     return pyg_error_str(kPygErrNoMem, "pyg_t");
+
+  res->id = 0;
+  res->child_count = 0;
+  res->parent = parent;
+
+  if (parent != NULL)
+    res->id = ++parent->child_count;
 
   res->json = json_parse_file_with_comments(path);
   if (res->json == NULL) {
@@ -40,22 +50,39 @@ pyg_error_t pyg_new(const char* path, pyg_t** out) {
     goto failed_to_object;
   }
 
-  res->path = path;
-  tmp = pyg_dirname(res->path);
-  if (tmp == NULL) {
-    err = pyg_error_str(kPygErrNoMem, "pyg_dirname");
-    goto failed_to_object;
-  }
-
-  res->dir = pyg_realpath(tmp);
-  free(tmp);
-  if (res->dir == NULL) {
+  res->path = pyg_realpath(path);
+  if (res->path == NULL) {
     err = pyg_error_str(kPygErrNoMem, "pyg_realpath");
     goto failed_to_object;
   }
 
+  res->dir = pyg_dirname(res->path);
+  if (res->dir == NULL) {
+    err = pyg_error_str(kPygErrNoMem, "pyg_dirname");
+    goto failed_dirname;
+  }
+
+  if (res->id == 0) {
+    err = pyg_hashmap_init(&res->children, kPygChildrenCount);
+  } else {
+    err = pyg_hashmap_insert(&parent->children,
+                             res->path,
+                             strlen(res->path),
+                             res);
+  }
+  if (!pyg_is_ok(err))
+    goto failed_children_init;
+
   *out = res;
   return pyg_ok();
+
+failed_children_init:
+  free(res->dir);
+  res->dir = NULL;
+
+failed_dirname:
+  free(res->path);
+  res->path = NULL;
 
 failed_to_object:
   json_value_free(res->json);
@@ -67,15 +94,32 @@ failed_parse_file:
 }
 
 
+pyg_error_t pyg_new(const char* path, pyg_t** out) {
+  return pyg_new_child(path, NULL, out);
+}
+
+
 void pyg_free(pyg_t* pyg) {
   free(pyg->dir);
   pyg->dir = NULL;
+
+  if (pyg->id == 0) {
+    pyg_hashmap_iterate(&pyg->children, pyg_free_child, NULL);
+    pyg_hashmap_destroy(&pyg->children);
+  }
 
   json_value_free(pyg->json);
   pyg->json = NULL;
   pyg->obj = NULL;
 
   free(pyg);
+}
+
+
+pyg_error_t pyg_free_child(pyg_hashmap_item_t* item, void* arg) {
+  pyg_free(item->value);
+
+  return pyg_ok();
 }
 
 

@@ -13,10 +13,17 @@ typedef struct pyg_state_s pyg_state_t;
 typedef struct pyg_target_s pyg_target_t;
 
 struct pyg_s {
+  /* 0 - for root, > 0 for child */
+  unsigned int id;
+  unsigned int child_count;
+
   JSON_Value* json;
   JSON_Object* obj;
-  const char* path;
+  char* path;
   char* dir;
+
+  pyg_t* parent;
+  pyg_hashmap_t children;
 };
 
 struct pyg_state_s {
