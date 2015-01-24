@@ -35,15 +35,11 @@ int main(int argc, char** argv) {
     goto failed_pyg_new;
   }
 
-  err = pyg_load(pyg);
-  if (!pyg_is_ok(err))
-    goto failed_pyg_load;
-
   err = pyg_translate(pyg, &pyg_gen_ninja, &buf);
   if (!pyg_is_ok(err)) {
     pyg_error_print(err, stderr);
     r = -1;
-    goto failed_pyg_load;
+    goto failed_pyg_translate;
   }
 
   /* Print output */
@@ -51,7 +47,7 @@ int main(int argc, char** argv) {
 
   r = 0;
 
-failed_pyg_load:
+failed_pyg_translate:
   pyg_free(pyg);
 
 failed_pyg_new:

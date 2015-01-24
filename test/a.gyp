@@ -4,7 +4,7 @@
 
     "deps": [
       "b",
-      "test/sub/c.gyp:c"
+      "../test/sub/c.gyp:c"
     ],
   }, {
     "target_name": "b"

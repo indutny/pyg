@@ -30,15 +30,35 @@ static pyg_error_t pyg_load_target_dep(void* val,
 pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   pyg_error_t err;
   pyg_t* res;
+  char* rpath;
+
+  rpath = pyg_realpath(path);
+  if (rpath == NULL)
+    return pyg_error_str(kPygErrNoMem, "pyg_realpath");
+
+  /* Try looking up the path */
+  if (parent != NULL) {
+    pyg_t* existing;
+
+    existing = pyg_hashmap_cget(&parent->root->children, rpath);
+
+    /* Child found! */
+    if (existing != NULL) {
+      *out = existing;
+      return pyg_ok();
+    }
+  }
 
   res = calloc(1, sizeof(*res));
-  if (res == NULL)
-    return pyg_error_str(kPygErrNoMem, "pyg_t");
+  if (res == NULL) {
+    err = pyg_error_str(kPygErrNoMem, "pyg_t");
+    goto failed_calloc;
+  }
 
   res->id = 0;
   res->child_count = 0;
   res->parent = parent;
-  res->root = parent == NULL ? res : parent;
+  res->root = res->parent == NULL ? res : res->parent->root;
 
   if (parent != NULL)
     res->id = ++parent->child_count;
@@ -55,16 +75,11 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
     goto failed_to_object;
   }
 
-  res->path = pyg_realpath(path);
-  if (res->path == NULL) {
-    err = pyg_error_str(kPygErrNoMem, "pyg_realpath");
-    goto failed_to_object;
-  }
-
+  res->path = rpath;
   res->dir = pyg_dirname(res->path);
   if (res->dir == NULL) {
     err = pyg_error_str(kPygErrNoMem, "pyg_dirname");
-    goto failed_dirname;
+    goto failed_to_object;
   }
 
   if (res->parent == NULL) {
@@ -83,6 +98,12 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   QUEUE_INIT(&res->target.list);
 
+  err = pyg_load(res);
+  if (!pyg_is_ok(err)) {
+    pyg_free(res);
+    return err;
+  }
+
   *out = res;
   return pyg_ok();
 
@@ -97,16 +118,15 @@ failed_children_init:
   free(res->dir);
   res->dir = NULL;
 
-failed_dirname:
-  free(res->path);
-  res->path = NULL;
-
 failed_to_object:
   json_value_free(res->json);
   res->json = NULL;
 
 failed_parse_file:
   free(res);
+
+failed_calloc:
+  free(rpath);
   return err;
 }
 
@@ -270,10 +290,14 @@ pyg_error_t pyg_load_target_deps(pyg_target_t* target) {
 
 
 pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
+  pyg_error_t err;
   const char* dep;
   pyg_target_t* target;
   pyg_target_t* dep_target;
+  pyg_t* child;
+  pyg_target_t* child_target;
   const char* colon;
+  char* dep_path;
 
   dep = val;
   target = arg;
@@ -292,6 +316,32 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
   }
 
   /* Non-local! */
+  dep_path = pyg_nresolve(target->pyg->dir,
+                          strlen(target->pyg->dir),
+                          dep,
+                          colon - dep);
+  if (dep_path == NULL) {
+    return pyg_error_str(kPygErrGYP,
+                         "Failed to resolve %.*s",
+                         colon - dep,
+                         dep);
+  }
+
+  err = pyg_new_child(dep_path, target->pyg, &child);
+  free(dep_path);
+  if (!pyg_is_ok(err))
+    return err;
+
+  child_target = pyg_hashmap_cget(&child->target.map, colon + 1);
+  if (child_target == NULL) {
+    return pyg_error_str(kPygErrGYP,
+                         "Child %s not found in %s",
+                         colon + 1,
+                         child->path);
+  }
+
+  target->deps.list[i] = child_target;
+
   return pyg_ok();
 }
 

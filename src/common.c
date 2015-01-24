@@ -373,13 +373,18 @@ char* pyg_realpath(const char* path) {
 
 
 char* pyg_resolve(const char* p1, const char* p2) {
+  return pyg_nresolve(p1, strlen(p1), p2, strlen(p2));
+}
+
+
+char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2) {
   char buf[PATH_MAX];
 
   /* Absolute path */
-  if (p2[0] == dir_sep)
+  if (len2 >= 1 && p2[0] == dir_sep)
     return pyg_realpath(p2);
 
   /* Relative path */
-  snprintf(buf, sizeof(buf), "%s%c%s", p1, dir_sep, p2);
+  snprintf(buf, sizeof(buf), "%.*s%c%.*s", len1, p1, dir_sep, len2, p2);
   return pyg_realpath(buf);
 }
