@@ -9,9 +9,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #define PYG_MURMUR3_C1 0xcc9e2d51
 #define PYG_MURMUR3_C2 0x1b873593
+
+#ifdef _MSC_VER
+static const char dir_sep = '\\';
+#else
+static const char dir_sep = '/';
+#endif
 
 
 static uint32_t pyg_murmur3(const char* key, uint32_t len) {
@@ -336,17 +343,9 @@ char* pyg_dirname(const char* path) {
   const char* c;
   char* res;
 
-  for (c = path + strlen(path); c != path; c--) {
-#ifdef _MSC_VER
-    /* Windows */
-    if (*c == '\\')
+  for (c = path + strlen(path); c != path; c--)
+    if (*c == dir_sep)
       break;
-#else
-    /* Linux */
-    if (*c == '/')
-      break;
-#endif
-  }
 
   if (c == path) {
     res = malloc(2);
@@ -370,4 +369,17 @@ char* pyg_dirname(const char* path) {
 
 char* pyg_realpath(const char* path) {
   return realpath(path, NULL);
+}
+
+
+char* pyg_resolve(const char* p1, const char* p2) {
+  char buf[PATH_MAX];
+
+  /* Absolute path */
+  if (p2[0] == dir_sep)
+    return pyg_realpath(p2);
+
+  /* Relative path */
+  snprintf(buf, sizeof(buf), "%s%c%s", p1, dir_sep, p2);
+  return pyg_realpath(buf);
 }

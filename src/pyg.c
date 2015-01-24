@@ -273,7 +273,7 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
   const char* dep;
   pyg_target_t* target;
   pyg_target_t* dep_target;
-  char* colon;
+  const char* colon;
 
   dep = val;
   target = arg;

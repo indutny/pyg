@@ -74,6 +74,7 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
 
 char* pyg_dirname(const char* path);
 char* pyg_realpath(const char* path);
+char* pyg_resolve(const char* p1, const char* p2);
 
 #define UNREACHABLE() do { abort(); } while (0)
 
