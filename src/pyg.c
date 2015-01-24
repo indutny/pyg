@@ -31,7 +31,7 @@ static pyg_error_t pyg_resolve_json(pyg_t* pyg,
                                     const char* key);
 static pyg_error_t pyg_target_type_from_str(const char* type,
                                             pyg_target_type_t* out);
-static pyg_error_t pyg_create_sources(pyg_t* pyg, pyg_target_t* target);
+static pyg_error_t pyg_create_sources(pyg_target_t* target);
 
 
 pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
@@ -229,7 +229,7 @@ pyg_error_t pyg_load(pyg_t* pyg) {
       return err;
 
     /* Create list of source/type/output structs */
-    err = pyg_create_sources(pyg, target);
+    err = pyg_create_sources(target);
     if (!pyg_is_ok(err))
       return err;
   }
@@ -320,7 +320,7 @@ pyg_error_t pyg_target_type_from_str(const char* type, pyg_target_type_t* out) {
     *out = kPygTargetExecutable;
   else if (strcmp(type, "static_library") == 0)
     *out = kPygTargetStatic;
-  else if (strcmp(type, "static_shared") == 0)
+  else if (strcmp(type, "shared_library") == 0)
     *out = kPygTargetShared;
   else
     return pyg_error_str(kPygErrJSON, "Invalid target.type: %s", type);
@@ -451,7 +451,7 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
 }
 
 
-pyg_error_t pyg_create_sources(pyg_t* pyg, pyg_target_t* target) {
+pyg_error_t pyg_create_sources(pyg_target_t* target) {
   size_t i;
   JSON_Array* arr;
 
@@ -459,6 +459,7 @@ pyg_error_t pyg_create_sources(pyg_t* pyg, pyg_target_t* target) {
   for (i = 0; i < target->source.count; i++) {
     pyg_source_t* src;
     const char* ext;
+    int n;
 
     src = &target->source.list[i];
 
@@ -492,27 +493,22 @@ pyg_error_t pyg_create_sources(pyg_t* pyg, pyg_target_t* target) {
       continue;
 
     /* Alloc enough space for output path */
-    src->out = malloc(strlen(src->path) + 2);
+    n = snprintf(NULL, 0, "%d__%lu.o", target->pyg->id, i);
+    src->out = malloc(n + 1);
     if (src->out == NULL)
       return pyg_error_str(kPygErrNoMem, "target.sources.out");
 
-    /* slice(src->path, 0, ext) + "o" */
-    memcpy(src->out, src->path, ext - src->path);
-    src->out[ext - src->path] = 'o';
-    src->out[ext - src->path + 1] = '\0';
+    /* Garbled name, but won't conflict with others */
+    /* TODO(indutny): add portions of real name for transparency */
+    snprintf(src->out, n + 1, "%d/%lu.o", target->pyg->id, i);
   }
 
   return pyg_ok();
 }
 
 
-pyg_error_t pyg_translate(pyg_t* pyg, pyg_gen_t* gen, pyg_buf_t* out) {
+pyg_error_t pyg_translate(pyg_t* pyg, pyg_settings_t* settings) {
   QUEUE* q;
-  pyg_state_t st;
-
-  st.pyg = pyg;
-  st.gen = gen;
-  st.out = out;
 
   /* Post order target traverse */
   QUEUE_FOREACH(q, &pyg->children.list) {
@@ -526,7 +522,7 @@ pyg_error_t pyg_translate(pyg_t* pyg, pyg_gen_t* gen, pyg_buf_t* out) {
 
       target = container_of(qt, pyg_target_t, member);
 
-      gen->target_cb(&st, target);
+      settings->gen->target_cb(target, settings);
     }
   }
 

@@ -8,5 +8,6 @@
     ],
   }, {
     "target_name": "d",
+    "type": "shared_library",
   }],
 }

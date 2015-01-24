@@ -14,6 +14,7 @@ static const int kPygBufferSize = 1024 * 1024;
 int main(int argc, char** argv) {
   pyg_t* pyg;
   pyg_buf_t buf;
+  pyg_settings_t settings;
   pyg_error_t err;
   int r;
 
@@ -35,7 +36,12 @@ int main(int argc, char** argv) {
     goto failed_pyg_new;
   }
 
-  err = pyg_translate(pyg, &pyg_gen_ninja, &buf);
+  /* TODO(indutny): command line option */
+  settings.builddir = "build";
+  settings.gen = &pyg_gen_ninja;
+  settings.out = &buf;
+
+  err = pyg_translate(pyg, &settings);
   if (!pyg_is_ok(err)) {
     pyg_error_print(err, stderr);
     r = -1;

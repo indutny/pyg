@@ -13,6 +13,7 @@ typedef struct pyg_s pyg_t;
 typedef struct pyg_state_s pyg_state_t;
 typedef struct pyg_target_s pyg_target_t;
 typedef struct pyg_source_s pyg_source_t;
+typedef struct pyg_settings_s pyg_settings_t;
 
 struct pyg_s {
   /* 0 - for root, > 0 for child */
@@ -37,12 +38,6 @@ struct pyg_s {
   } target;
 
   QUEUE member;
-};
-
-struct pyg_state_s {
-  struct pyg_s* pyg;
-  struct pyg_gen_s* gen;
-  struct pyg_buf_s* out;
 };
 
 enum pyg_target_type_e {
@@ -94,9 +89,16 @@ struct pyg_source_s {
   char* out;
 };
 
+struct pyg_settings_s {
+  const char* builddir;
+
+  struct pyg_gen_s* gen;
+  pyg_buf_t* out;
+};
+
 pyg_error_t pyg_new(const char* path, pyg_t** out);
 void pyg_free(pyg_t* pyg);
 
-pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* out);
+pyg_error_t pyg_translate(pyg_t* pyg, pyg_settings_t* settings);
 
 #endif  /* SRC_PYG_H_ */
