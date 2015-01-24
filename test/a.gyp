@@ -6,6 +6,11 @@
       "b",
       "../test/sub/c.gyp:c"
     ],
+
+    "sources": [
+      "../src/pyg.c",
+      "./ohai.c",
+    ],
   }, {
     "target_name": "b"
   }],

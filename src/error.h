@@ -9,6 +9,7 @@ typedef struct pyg_error_s pyg_error_t;
     X(NoMem)                                                                  \
     X(JSON)                                                                   \
     X(GYP)                                                                    \
+    X(FS)                                                                     \
 
 #define PYG_DEFINE_ERROR(V) kPygErr##V,
 

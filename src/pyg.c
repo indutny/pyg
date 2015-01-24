@@ -17,6 +17,7 @@ static const unsigned kPygTargetCount = 16;
 static pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out);
 static pyg_error_t pyg_free_child(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg);
+static pyg_error_t pyg_load(pyg_t* pyg);
 static pyg_error_t pyg_load_target(void* val,
                                    size_t i,
                                    size_t count,
@@ -26,6 +27,9 @@ static pyg_error_t pyg_load_target_dep(void* val,
                                        size_t i,
                                        size_t count,
                                        void* arg);
+static pyg_error_t pyg_resolve_json(pyg_t* pyg,
+                                    JSON_Object* json,
+                                    const char* key);
 
 pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   pyg_error_t err;
@@ -34,7 +38,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   rpath = pyg_realpath(path);
   if (rpath == NULL)
-    return pyg_error_str(kPygErrNoMem, "pyg_realpath");
+    return pyg_error_str(kPygErrFS, "pyg_realpath");
 
   /* Try looking up the path */
   if (parent != NULL) {
@@ -78,7 +82,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   res->path = rpath;
   res->dir = pyg_dirname(res->path);
   if (res->dir == NULL) {
-    err = pyg_error_str(kPygErrNoMem, "pyg_dirname");
+    err = pyg_error_str(kPygErrFS, "pyg_dirname");
     goto failed_to_object;
   }
 
@@ -204,9 +208,12 @@ pyg_error_t pyg_load(pyg_t* pyg) {
     err = pyg_load_target_deps(target);
     if (!pyg_is_ok(err))
       return err;
+
+    /* Resolve various path arrays in JSON */
+    err = pyg_resolve_json(pyg, target->json, "sources");
+    if (!pyg_is_ok(err))
+      return err;
   }
-  if (!pyg_is_ok(err))
-    return err;
 
   return pyg_ok();
 }
@@ -321,7 +328,7 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
                           dep,
                           colon - dep);
   if (dep_path == NULL) {
-    return pyg_error_str(kPygErrGYP,
+    return pyg_error_str(kPygErrFS,
                          "Failed to resolve %.*s",
                          colon - dep,
                          dep);
@@ -341,6 +348,46 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
   }
 
   target->deps.list[i] = child_target;
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
+  JSON_Value* val;
+  JSON_Array* arr;
+  size_t i;
+  size_t count;
+
+  val = json_object_get_value(json, key);
+  /* No values */
+  if (val == NULL)
+    return pyg_ok();
+
+  arr = json_value_get_array(val);
+  /* Not array */
+  if (arr == NULL)
+    return pyg_error_str(kPygErrJSON, "`%s` not array", key);
+
+  count = json_array_get_count(arr);
+  for (i = 0; i < count; i++) {
+    const char* path;
+    char* resolved;
+    JSON_Status status;
+
+    path = json_array_get_string(arr, i);
+    if (path == NULL)
+      return pyg_error_str(kPygErrJSON, "`%s`[%lu] not string", key, i);
+
+    resolved = pyg_resolve(pyg->dir, path);
+    if (resolved == NULL)
+      return pyg_error_str(kPygErrFS, "pyg_resolve");
+
+    status = json_array_replace_string(arr, i, resolved);
+    free(resolved);
+    if (status != JSONSuccess)
+      return pyg_error_str(kPygErrJSON, "Failed to insert string into array");
+  }
 
   return pyg_ok();
 }

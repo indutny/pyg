@@ -56,7 +56,6 @@ struct pyg_target_s {
 pyg_error_t pyg_new(const char* path, pyg_t** out);
 void pyg_free(pyg_t* pyg);
 
-pyg_error_t pyg_load(pyg_t* pyg);
 pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf);
 
 #endif  /* SRC_PYG_H_ */
