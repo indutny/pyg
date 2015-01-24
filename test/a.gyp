@@ -2,7 +2,7 @@
   "targets": [{
     'target_name': "a",
 
-    "deps": [
+    "dependencies": [
       "b",
       "../test/sub/c.gyp:c"
     ],

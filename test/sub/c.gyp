@@ -3,7 +3,7 @@
     'target_name': "c",
     "type": "static_library",
 
-    "deps": [
+    "dependencies": [
       "../a.gyp:b",
     ],
 

@@ -64,22 +64,23 @@ struct pyg_target_s {
   } deps;
 
   struct {
+    int types;
     pyg_source_t* list;
     unsigned int count;
   } source;
 };
 
 enum pyg_source_type_e {
-  kPygSourceC,
-  kPygSourceCXX,
-  kPygSourceObjC,
-  kPygSourceObjCXX,
+  kPygSourceC = 0x1,
+  kPygSourceCXX = 0x2,
+  kPygSourceObjC = 0x4,
+  kPygSourceObjCXX = 0x8,
 
   /* .o, .so, .dylib and other linkable, but non-compilable stuff */
-  kPygSourceLink,
+  kPygSourceLink = 0x10,
 
   /* Headers and various non-compilable stuff */
-  kPygSourceSkip
+  kPygSourceSkip = 0x20
 };
 typedef enum pyg_source_type_e pyg_source_type_t;
 

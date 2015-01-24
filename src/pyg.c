@@ -266,7 +266,8 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   QUEUE_INIT(&target->member);
 
   /* Allocate space for dependencies */
-  target->deps.count = json_array_get_count(json_object_get_array(obj, "deps"));
+  target->deps.count =
+      json_array_get_count(json_object_get_array(obj, "dependencies"));
   target->deps.list = calloc(target->deps.count, sizeof(*target->deps.list));
   if (target->deps.list == NULL) {
     err = pyg_error_str(kPygErrNoMem, "pyg_target_t.deps");
@@ -346,17 +347,17 @@ pyg_error_t pyg_load_target_deps(pyg_target_t* target) {
   JSON_Value* val;
   JSON_Array* deps;
 
-  val = json_object_get_value(target->json, "deps");
+  val = json_object_get_value(target->json, "dependencies");
   /* Assume no deps */
   if (val == NULL)
     return pyg_ok();
 
   deps = json_value_get_array(val);
   if (deps == NULL)
-    return pyg_error_str(kPygErrJSON, "deps not array");
+    return pyg_error_str(kPygErrJSON, "dependencies not array");
 
   return pyg_iter_array(deps,
-                        "deps",
+                        "dependencies",
                         (pyg_iter_array_get_cb) json_array_get_string,
                         pyg_load_target_dep,
                         target);
@@ -482,24 +483,25 @@ pyg_error_t pyg_create_sources(pyg_target_t* target) {
     /* No extension - skip */
     if (ext == NULL) {
       src->type = kPygSourceSkip;
-      continue;
+    } else {
+      ext++;
+      if (strcmp(ext, "c") == 0)
+        src->type = kPygSourceC;
+      else if (strcmp(ext, "cc") == 0 || strcmp(ext, "cpp") == 0)
+        src->type = kPygSourceCXX;
+      else if (strcmp(ext, "m") == 0)
+        src->type = kPygSourceObjC;
+      else if (strcmp(ext, "mm") == 0)
+        src->type = kPygSourceObjCXX;
+      else if (strcmp(ext, "o") == 0 || strcmp(ext, "so") == 0)
+        src->type = kPygSourceLink;
+      else if (strcmp(ext, "dylib") == 0 || strcmp(ext, "dll") == 0)
+        src->type = kPygSourceLink;
+      else
+        src->type = kPygSourceSkip;
     }
 
-    ext++;
-    if (strcmp(ext, "c") == 0)
-      src->type = kPygSourceC;
-    else if (strcmp(ext, "cc") == 0 || strcmp(ext, "cpp") == 0)
-      src->type = kPygSourceCXX;
-    else if (strcmp(ext, "m") == 0)
-      src->type = kPygSourceObjC;
-    else if (strcmp(ext, "mm") == 0)
-      src->type = kPygSourceObjCXX;
-    else if (strcmp(ext, "o") == 0 || strcmp(ext, "so") == 0)
-      src->type = kPygSourceLink;
-    else if (strcmp(ext, "dylib") == 0 || strcmp(ext, "dll") == 0)
-      src->type = kPygSourceLink;
-    else
-      src->type = kPygSourceSkip;
+    target->source.types |= src->type;
 
     /* Unknown extension or non-compilable - no output */
     if (src->type == kPygSourceSkip || src->type == kPygSourceLink)
