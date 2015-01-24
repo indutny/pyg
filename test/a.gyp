@@ -12,6 +12,7 @@
       "./ohai.c",
     ],
   }, {
-    "target_name": "b"
+    "target_name": "b",
+    "type": "static_library",
   }],
 }

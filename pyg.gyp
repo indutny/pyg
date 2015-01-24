@@ -1,5 +1,7 @@
 {
   "targets": [{
-    'target_name': "ohai"
+    "target_name": "pyg"
+    "type": "executable",
+
   }],
 }

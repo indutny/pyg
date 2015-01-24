@@ -333,7 +333,6 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
   pyg_target_t* target;
   pyg_target_t* dep_target;
   pyg_t* child;
-  pyg_target_t* child_target;
   const char* colon;
   char* dep_path;
 
@@ -347,10 +346,9 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
   if (colon == NULL) {
     dep_target = pyg_hashmap_cget(&target->pyg->target.map, dep);
     if (dep_target == NULL)
-      return pyg_error_str(kPygErrGYP, "Dependency not found %s", dep);
+      return pyg_error_str(kPygErrGYP, "Dependency `%s` not found", dep);
 
-    target->deps.list[i] = dep_target;
-    return pyg_ok();
+    goto done;
   }
 
   /* Non-local! */
@@ -370,16 +368,22 @@ pyg_error_t pyg_load_target_dep(void* val, size_t i, size_t count, void* arg) {
   if (!pyg_is_ok(err))
     return err;
 
-  child_target = pyg_hashmap_cget(&child->target.map, colon + 1);
-  if (child_target == NULL) {
+  dep_target = pyg_hashmap_cget(&child->target.map, colon + 1);
+  if (dep_target == NULL) {
     return pyg_error_str(kPygErrGYP,
                          "Child %s not found in %s",
                          colon + 1,
                          child->path);
   }
 
-  target->deps.list[i] = child_target;
+done:
+  if (dep_target->type == kPygTargetExecutable) {
+    return pyg_error_str(kPygErrGYP,
+                         "Dependency `%s` has non-linkable type",
+                         dep);
+  }
 
+  target->deps.list[i] = dep_target;
   return pyg_ok();
 }
 
