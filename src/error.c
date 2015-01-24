@@ -1,13 +1,21 @@
 #include "src/error.h"
 #include "src/common.h"
 
+#include <stdarg.h>
+
 pyg_error_t pyg_error(pyg_error_code_t code) {
   return (pyg_error_t) { .code = code, .str = NULL };
 }
 
 
-pyg_error_t pyg_error_str(pyg_error_code_t code, const char* str) {
-  return (pyg_error_t) { .code = code, .str = str };
+pyg_error_t pyg_error_str(pyg_error_code_t code, const char* fmt, ...) {
+  static char buf[1024];
+  va_list ap;
+
+  va_start(ap, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+
+  return (pyg_error_t) { .code = code, .str = buf };
 }
 
 

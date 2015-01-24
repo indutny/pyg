@@ -47,6 +47,10 @@ void* pyg_hashmap_get(pyg_hashmap_t* hashmap,
 pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
                                 pyg_hashmap_iterate_cb cb,
                                 void* arg);
+#define pyg_hashmap_cinsert(h, k, v)                                          \
+    pyg_hashmap_insert((h), (k), strlen((k)), (v))
+#define pyg_hashmap_cdelete(h, k) pyg_hashmap_delete((h), (k), strlen((k)))
+#define pyg_hashmap_cget(h, k) pyg_hashmap_get((h), (k), strlen((k)))
 
 
 struct pyg_buf_s {
@@ -72,5 +76,10 @@ char* pyg_dirname(const char* path);
 char* pyg_realpath(const char* path);
 
 #define UNREACHABLE() do { abort(); } while (0)
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+#define container_of(ptr, type, member) \
+((type *) ((char *) (ptr) - offsetof(type, member)))
 
 #endif  /* SRC_COMMON_H_ */

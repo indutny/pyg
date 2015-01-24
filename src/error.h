@@ -8,6 +8,7 @@ typedef struct pyg_error_s pyg_error_t;
 #define PYG_ERROR_ENUM(X)                                                     \
     X(NoMem)                                                                  \
     X(JSON)                                                                   \
+    X(GYP)                                                                    \
 
 #define PYG_DEFINE_ERROR(V) kPygErr##V,
 
@@ -34,7 +35,7 @@ struct pyg_error_s {
 #define pyg_ok() ((pyg_error_t) { .code = kPygOk, .str = 0 })
 
 pyg_error_t pyg_error(pyg_error_code_t code);
-pyg_error_t pyg_error_str(pyg_error_code_t code, const char* str);
+pyg_error_t pyg_error_str(pyg_error_code_t code, const char* fmt, ...);
 const char* pyg_error_code_to_str(pyg_error_code_t code);
 void pyg_error_print(pyg_error_t err, FILE* out);
 

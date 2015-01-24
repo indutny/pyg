@@ -2,6 +2,7 @@
 #define SRC_PYG_H_
 
 #include "src/common.h"
+#include "src/queue.h"
 
 #include "parson.h"
 
@@ -26,7 +27,10 @@ struct pyg_s {
   pyg_t* parent;
   pyg_hashmap_t children;
 
-  pyg_hashmap_t targets;
+  struct {
+    pyg_hashmap_t map;
+    QUEUE list;
+  } target;
 };
 
 struct pyg_state_s {
@@ -36,8 +40,17 @@ struct pyg_state_s {
 };
 
 struct pyg_target_s {
+  pyg_t* pyg;
+  JSON_Object* json;
+
   const char* name;
   const char* type;
+
+  QUEUE member;
+  struct {
+    pyg_target_t** list;
+    unsigned int count;
+  } deps;
 };
 
 pyg_error_t pyg_new(const char* path, pyg_t** out);
