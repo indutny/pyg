@@ -41,7 +41,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   rpath = pyg_realpath(path);
   if (rpath == NULL)
-    return pyg_error_str(kPygErrFS, "pyg_realpath");
+    return pyg_error_str(kPygErrFS, "pyg_realpath(%s)", path);
 
   /* Try looking up the path */
   if (parent != NULL) {
@@ -85,7 +85,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   res->path = rpath;
   res->dir = pyg_dirname(res->path);
   if (res->dir == NULL) {
-    err = pyg_error_str(kPygErrFS, "pyg_dirname");
+    err = pyg_error_str(kPygErrFS, "pyg_dirname(%s)", res->path);
     goto failed_to_object;
   }
 
@@ -114,6 +114,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   err = pyg_load(res);
   if (!pyg_is_ok(err)) {
+    pyg_hashmap_cdelete(&res->root->children.map, res->path);
     pyg_free(res);
     return err;
   }
@@ -180,9 +181,16 @@ pyg_error_t pyg_free_child(pyg_hashmap_item_t* item, void* arg) {
 
 pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg) {
   pyg_target_t* target;
+  unsigned int i;
 
   target = item->value;
   QUEUE_REMOVE(&target->member);
+
+  for (i = 0; i < target->source.count; i++) {
+    free(target->source.list[i].out);
+    free(target->source.list[i].filename);
+  }
+
   free(target->source.list);
   free(target->deps.list);
   free(target);
@@ -268,6 +276,11 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   /* Allocate space for source files */
   target->source.count =
       json_array_get_count(json_object_get_array(obj, "sources"));
+  if (target->source.count == 0) {
+    err = pyg_error_str(kPygErrGYP, "at least one source is required");
+    goto failed_alloc_source;
+  }
+
   target->source.list = calloc(target->source.count,
                                sizeof(*target->source.list));
   if (target->source.list == NULL) {
@@ -439,7 +452,7 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
 
     resolved = pyg_resolve(pyg->dir, path);
     if (resolved == NULL)
-      return pyg_error_str(kPygErrFS, "pyg_resolve");
+      return pyg_error_str(kPygErrFS, "pyg_resolve(%s, %s)", pyg->dir, path);
 
     status = json_array_replace_string(arr, i, resolved);
     free(resolved);
@@ -476,11 +489,11 @@ pyg_error_t pyg_create_sources(pyg_target_t* target) {
     if (strcmp(ext, "c") == 0)
       src->type = kPygSourceC;
     else if (strcmp(ext, "cc") == 0 || strcmp(ext, "cpp") == 0)
-      src->type = kPygSourceCC;
+      src->type = kPygSourceCXX;
     else if (strcmp(ext, "m") == 0)
       src->type = kPygSourceObjC;
     else if (strcmp(ext, "mm") == 0)
-      src->type = kPygSourceObjCC;
+      src->type = kPygSourceObjCXX;
     else if (strcmp(ext, "o") == 0 || strcmp(ext, "so") == 0)
       src->type = kPygSourceLink;
     else if (strcmp(ext, "dylib") == 0 || strcmp(ext, "dll") == 0)
@@ -492,15 +505,18 @@ pyg_error_t pyg_create_sources(pyg_target_t* target) {
     if (src->type == kPygSourceSkip || src->type == kPygSourceLink)
       continue;
 
+    src->filename = pyg_filename(src->path);
+    if (src->filename == NULL)
+      return pyg_error_str(kPygErrNoMem, "target.sources.out");
+
     /* Alloc enough space for output path */
-    n = snprintf(NULL, 0, "%d__%lu.o", target->pyg->id, i);
+    n = snprintf(NULL, 0, "%s_%d.o", src->filename, (int) i);
     src->out = malloc(n + 1);
     if (src->out == NULL)
       return pyg_error_str(kPygErrNoMem, "target.sources.out");
 
     /* Garbled name, but won't conflict with others */
-    /* TODO(indutny): add portions of real name for transparency */
-    snprintf(src->out, n + 1, "%d/%lu.o", target->pyg->id, i);
+    snprintf(src->out, n + 1, "%s_%d.o", src->filename, (int) i);
   }
 
   return pyg_ok();
@@ -509,6 +525,8 @@ pyg_error_t pyg_create_sources(pyg_target_t* target) {
 
 pyg_error_t pyg_translate(pyg_t* pyg, pyg_settings_t* settings) {
   QUEUE* q;
+
+  settings->gen->prologue_cb(settings);
 
   /* Post order target traverse */
   QUEUE_FOREACH(q, &pyg->children.list) {
@@ -525,6 +543,8 @@ pyg_error_t pyg_translate(pyg_t* pyg, pyg_settings_t* settings) {
       settings->gen->target_cb(target, settings);
     }
   }
+
+  settings->gen->epilogue_cb(settings);
 
   return pyg_ok();
 }

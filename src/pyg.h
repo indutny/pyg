@@ -71,9 +71,9 @@ struct pyg_target_s {
 
 enum pyg_source_type_e {
   kPygSourceC,
-  kPygSourceCC,
+  kPygSourceCXX,
   kPygSourceObjC,
-  kPygSourceObjCC,
+  kPygSourceObjCXX,
 
   /* .o, .so, .dylib and other linkable, but non-compilable stuff */
   kPygSourceLink,
@@ -87,6 +87,7 @@ struct pyg_source_s {
   pyg_source_type_t type;
   const char* path;
   char* out;
+  char* filename;
 };
 
 struct pyg_settings_s {

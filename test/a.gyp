@@ -14,5 +14,9 @@
   }, {
     "target_name": "b",
     "type": "static_library",
+
+    "sources": [
+      "ohai.cc",
+    ],
   }],
 }

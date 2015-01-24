@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
+#include <limits.h>  /* PATH_MAX */
 
 #define PYG_MURMUR3_C1 0xcc9e2d51
 #define PYG_MURMUR3_C2 0x1b873593
@@ -387,4 +387,35 @@ char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2) {
   /* Relative path */
   snprintf(buf, sizeof(buf), "%.*s%c%.*s", len1, p1, dir_sep, len2, p2);
   return pyg_realpath(buf);
+}
+
+
+const char* pyg_basename(const char* path) {
+  const char* p;
+
+  p = strrchr(path, '/');
+  if (p == NULL)
+    return path;
+
+  return p + 1;
+}
+
+
+char* pyg_filename(const char* path) {
+  const char* base;
+  const char* p;
+  char* res;
+
+  base = pyg_basename(path);
+  p = strrchr(base, '.');
+  if (p == NULL)
+    return strdup(base);
+
+  res = malloc(p - base + 1);
+  if (res == NULL)
+    return NULL;
+
+  memcpy(res, base, p - base);
+  res[p - base] = '\0';
+  return res;
 }

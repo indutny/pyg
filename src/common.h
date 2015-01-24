@@ -72,6 +72,8 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
                            pyg_iter_array_cb cb,
                            void* arg);
 
+const char* pyg_basename(const char* path);
+char* pyg_filename(const char* path);
 char* pyg_dirname(const char* path);
 char* pyg_realpath(const char* path);
 char* pyg_resolve(const char* p1, const char* p2);
