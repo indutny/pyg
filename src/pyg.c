@@ -9,7 +9,6 @@
 #include <string.h>
 
 
-static const char* kPygDefaultTargetType = "executable";
 static const unsigned kPygChildrenCount = 16;
 static const unsigned kPygTargetCount = 16;
 
@@ -30,6 +29,8 @@ static pyg_error_t pyg_load_target_dep(void* val,
 static pyg_error_t pyg_resolve_json(pyg_t* pyg,
                                     JSON_Object* json,
                                     const char* key);
+static pyg_error_t pyg_target_type_from_str(const char* type,
+                                            pyg_target_type_t* out);
 
 pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   pyg_error_t err;
@@ -44,7 +45,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   if (parent != NULL) {
     pyg_t* existing;
 
-    existing = pyg_hashmap_cget(&parent->root->children, rpath);
+    existing = pyg_hashmap_cget(&parent->root->children.map, rpath);
 
     /* Child found! */
     if (existing != NULL) {
@@ -86,13 +87,20 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
     goto failed_to_object;
   }
 
+  QUEUE_INIT(&res->member);
+
   if (res->parent == NULL) {
-    err = pyg_hashmap_init(&res->children, kPygChildrenCount);
+    QUEUE_INIT(&res->children.list);
+
+    err = pyg_hashmap_init(&res->children.map, kPygChildrenCount);
     if (!pyg_is_ok(err))
       goto failed_children_init;
   }
 
-  err = pyg_hashmap_cinsert(&res->root->children, res->path, res);
+  /* For easier iteration - push self to the list anyway */
+  QUEUE_INSERT_TAIL(&res->root->children.list, &res->member);
+
+  err = pyg_hashmap_cinsert(&res->root->children.map, res->path, res);
   if (!pyg_is_ok(err))
     goto failed_children_insert;
 
@@ -112,11 +120,11 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   return pyg_ok();
 
 failed_target_init:
-  pyg_hashmap_cdelete(&res->root->children, res->path);
+  pyg_hashmap_cdelete(&res->root->children.map, res->path);
 
 failed_children_insert:
   if (res->parent == NULL)
-    pyg_hashmap_destroy(&res->children);
+    pyg_hashmap_destroy(&res->children.map);
 
 failed_children_init:
   free(res->dir);
@@ -145,8 +153,8 @@ void pyg_free(pyg_t* pyg) {
   pyg->dir = NULL;
 
   if (pyg->parent == NULL) {
-    pyg_hashmap_iterate(&pyg->children, pyg_free_child, pyg);
-    pyg_hashmap_destroy(&pyg->children);
+    pyg_hashmap_iterate(&pyg->children.map, pyg_free_child, pyg);
+    pyg_hashmap_destroy(&pyg->children.map);
   }
   pyg_hashmap_iterate(&pyg->target.map, pyg_free_target, NULL);
   pyg_hashmap_destroy(&pyg->target.map);
@@ -211,6 +219,8 @@ pyg_error_t pyg_load(pyg_t* pyg) {
 
     /* Resolve various path arrays in JSON */
     err = pyg_resolve_json(pyg, target->json, "sources");
+    if (pyg_is_ok(err))
+      err = pyg_resolve_json(pyg, target->json, "include_dirs");
     if (!pyg_is_ok(err))
       return err;
   }
@@ -222,6 +232,7 @@ pyg_error_t pyg_load(pyg_t* pyg) {
 pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   JSON_Object* obj;
   const char* name;
+  const char* type;
   pyg_t* pyg;
   pyg_target_t* target;
   pyg_error_t err;
@@ -253,9 +264,10 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   }
 
   target->name = name;
-  target->type = json_object_get_string(obj, "type");
-  if (target->type == NULL)
-    target->type = kPygDefaultTargetType;
+  type = json_object_get_string(obj, "type");
+  err = pyg_target_type_from_str(type, &target->type);
+  if (!pyg_is_ok(err))
+    goto failed_target_name;
 
   err = pyg_hashmap_cinsert(&pyg->target.map, name, target);
   if (!pyg_is_ok(err))
@@ -272,6 +284,25 @@ failed_alloc_deps:
   free(target);
 
   return err;
+}
+
+
+pyg_error_t pyg_target_type_from_str(const char* type, pyg_target_type_t* out) {
+  if (type == NULL) {
+    *out = kPygTargetDefaultType;
+    return pyg_ok();
+  }
+
+  if (strcmp(type, "executable") == 0)
+    *out = kPygTargetExecutable;
+  else if (strcmp(type, "static_library") == 0)
+    *out = kPygTargetStatic;
+  else if (strcmp(type, "static_shared") == 0)
+    *out = kPygTargetShared;
+  else
+    return pyg_error_str(kPygErrJSON, "Invalid target.type: %s", type);
+
+  return pyg_ok();
 }
 
 
@@ -393,6 +424,29 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
 }
 
 
-pyg_error_t pyg_translate(pyg_t* pyg, pyg_gen_t* gen, pyg_buf_t* buf) {
+pyg_error_t pyg_translate(pyg_t* pyg, pyg_gen_t* gen, pyg_buf_t* out) {
+  QUEUE* q;
+  pyg_state_t st;
+
+  st.pyg = pyg;
+  st.gen = gen;
+  st.out = out;
+
+  /* Post order target traverse */
+  QUEUE_FOREACH(q, &pyg->children.list) {
+    pyg_t* p;
+    QUEUE* qt;
+
+    p = container_of(q, pyg_t, member);
+
+    QUEUE_FOREACH(qt, &p->target.list) {
+      pyg_target_t* target;
+
+      target = container_of(qt, pyg_target_t, member);
+
+      gen->target_cb(&st, target);
+    }
+  }
+
   return pyg_ok();
 }

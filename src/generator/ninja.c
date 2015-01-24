@@ -12,5 +12,11 @@ pyg_gen_t pyg_gen_ninja = {
 
 pyg_error_t pyg_gen_ninja_target_cb(pyg_state_t* state,
                                     pyg_target_t* target) {
-  return pyg_buf_put(state->buf, "build %s: phony\n", target->name);
+  if (target->pyg->id == 0)
+    return pyg_buf_put(state->out, "build %s: phony\n", target->name);
+
+  return pyg_buf_put(state->out,
+                     "build %d__%s: phony\n",
+                     target->pyg->id,
+                     target->name);
 }

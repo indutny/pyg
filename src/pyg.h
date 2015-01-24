@@ -25,26 +25,40 @@ struct pyg_s {
 
   pyg_t* root;
   pyg_t* parent;
-  pyg_hashmap_t children;
+  struct {
+    pyg_hashmap_t map;
+    QUEUE list;
+  } children;
 
   struct {
     pyg_hashmap_t map;
     QUEUE list;
   } target;
+
+  QUEUE member;
 };
 
 struct pyg_state_s {
   struct pyg_s* pyg;
   struct pyg_gen_s* gen;
-  struct pyg_buf_s* buf;
+  struct pyg_buf_s* out;
 };
+
+enum pyg_target_type_e {
+  kPygTargetExecutable,
+  kPygTargetStatic,
+  kPygTargetShared,
+
+  kPygTargetDefaultType = kPygTargetExecutable
+};
+typedef enum pyg_target_type_e pyg_target_type_t;
 
 struct pyg_target_s {
   pyg_t* pyg;
   JSON_Object* json;
 
   const char* name;
-  const char* type;
+  pyg_target_type_t type;
 
   QUEUE member;
   struct {
@@ -56,6 +70,6 @@ struct pyg_target_s {
 pyg_error_t pyg_new(const char* path, pyg_t** out);
 void pyg_free(pyg_t* pyg);
 
-pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* buf);
+pyg_error_t pyg_translate(pyg_t* pyg, struct pyg_gen_s* gen, pyg_buf_t* out);
 
 #endif  /* SRC_PYG_H_ */
