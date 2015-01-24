@@ -12,6 +12,7 @@ struct pyg_gen_s;
 typedef struct pyg_s pyg_t;
 typedef struct pyg_state_s pyg_state_t;
 typedef struct pyg_target_s pyg_target_t;
+typedef struct pyg_source_s pyg_source_t;
 
 struct pyg_s {
   /* 0 - for root, > 0 for child */
@@ -61,10 +62,36 @@ struct pyg_target_s {
   pyg_target_type_t type;
 
   QUEUE member;
+
   struct {
     pyg_target_t** list;
     unsigned int count;
   } deps;
+
+  struct {
+    pyg_source_t* list;
+    unsigned int count;
+  } source;
+};
+
+enum pyg_source_type_e {
+  kPygSourceC,
+  kPygSourceCC,
+  kPygSourceObjC,
+  kPygSourceObjCC,
+
+  /* .o, .so, .dylib and other linkable, but non-compilable stuff */
+  kPygSourceLink,
+
+  /* Headers and various non-compilable stuff */
+  kPygSourceSkip
+};
+typedef enum pyg_source_type_e pyg_source_type_t;
+
+struct pyg_source_s {
+  pyg_source_type_t type;
+  const char* path;
+  char* out;
 };
 
 pyg_error_t pyg_new(const char* path, pyg_t** out);

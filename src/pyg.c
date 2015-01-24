@@ -31,6 +31,8 @@ static pyg_error_t pyg_resolve_json(pyg_t* pyg,
                                     const char* key);
 static pyg_error_t pyg_target_type_from_str(const char* type,
                                             pyg_target_type_t* out);
+static pyg_error_t pyg_create_sources(pyg_t* pyg, pyg_target_t* target);
+
 
 pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   pyg_error_t err;
@@ -181,6 +183,8 @@ pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg) {
 
   target = item->value;
   QUEUE_REMOVE(&target->member);
+  free(target->source.list);
+  free(target->deps.list);
   free(target);
 
   return pyg_ok();
@@ -223,6 +227,11 @@ pyg_error_t pyg_load(pyg_t* pyg) {
       err = pyg_resolve_json(pyg, target->json, "include_dirs");
     if (!pyg_is_ok(err))
       return err;
+
+    /* Create list of source/type/output structs */
+    err = pyg_create_sources(pyg, target);
+    if (!pyg_is_ok(err))
+      return err;
   }
 
   return pyg_ok();
@@ -256,6 +265,16 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
     goto failed_alloc_deps;
   }
 
+  /* Allocate space for source files */
+  target->source.count =
+      json_array_get_count(json_object_get_array(obj, "sources"));
+  target->source.list = calloc(target->source.count,
+                               sizeof(*target->source.list));
+  if (target->source.list == NULL) {
+    err = pyg_error_str(kPygErrNoMem, "pyg_target_t.source");
+    goto failed_alloc_source;
+  }
+
   /* Load name/type */
   name = json_object_get_string(obj, "target_name");
   if (name == NULL) {
@@ -277,6 +296,10 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   return pyg_ok();
 
 failed_target_name:
+  free(target->source.list);
+  target->source.list = NULL;
+
+failed_alloc_source:
   free(target->deps.list);
   target->deps.list = NULL;
 
@@ -422,6 +445,61 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
     free(resolved);
     if (status != JSONSuccess)
       return pyg_error_str(kPygErrJSON, "Failed to insert string into array");
+  }
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_create_sources(pyg_t* pyg, pyg_target_t* target) {
+  size_t i;
+  JSON_Array* arr;
+
+  arr = json_object_get_array(target->json, "sources");
+  for (i = 0; i < target->source.count; i++) {
+    pyg_source_t* src;
+    const char* ext;
+
+    src = &target->source.list[i];
+
+    src->path = json_array_get_string(arr, i);
+    ext = strrchr(src->path, '.');
+
+    /* No extension - skip */
+    if (ext == NULL) {
+      src->type = kPygSourceSkip;
+      continue;
+    }
+
+    ext++;
+    if (strcmp(ext, "c") == 0)
+      src->type = kPygSourceC;
+    else if (strcmp(ext, "cc") == 0 || strcmp(ext, "cpp") == 0)
+      src->type = kPygSourceCC;
+    else if (strcmp(ext, "m") == 0)
+      src->type = kPygSourceObjC;
+    else if (strcmp(ext, "mm") == 0)
+      src->type = kPygSourceObjCC;
+    else if (strcmp(ext, "o") == 0 || strcmp(ext, "so") == 0)
+      src->type = kPygSourceLink;
+    else if (strcmp(ext, "dylib") == 0 || strcmp(ext, "dll") == 0)
+      src->type = kPygSourceLink;
+    else
+      src->type = kPygSourceSkip;
+
+    /* Unknown extension or non-compilable - no output */
+    if (src->type == kPygSourceSkip || src->type == kPygSourceLink)
+      continue;
+
+    /* Alloc enough space for output path */
+    src->out = malloc(strlen(src->path) + 2);
+    if (src->out == NULL)
+      return pyg_error_str(kPygErrNoMem, "target.sources.out");
+
+    /* slice(src->path, 0, ext) + "o" */
+    memcpy(src->out, src->path, ext - src->path);
+    src->out[ext - src->path] = 'o';
+    src->out[ext - src->path + 1] = '\0';
   }
 
   return pyg_ok();
