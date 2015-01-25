@@ -11,11 +11,13 @@
 
 static const unsigned kPygChildrenCount = 16;
 static const unsigned kPygTargetCount = 16;
+static const unsigned kPygVarCount = 16;
 
 
 static pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out);
 static pyg_error_t pyg_free_child(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg);
+static pyg_error_t pyg_free_var(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_load(pyg_t* pyg);
 static pyg_error_t pyg_load_target(void* val,
                                    size_t i,
@@ -112,6 +114,10 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   QUEUE_INIT(&res->target.list);
 
+  err = pyg_hashmap_init(&res->vars, kPygVarCount);
+  if (!pyg_is_ok(err))
+    goto failed_vars_init;
+
   err = pyg_load(res);
   if (!pyg_is_ok(err)) {
     pyg_hashmap_cdelete(&res->root->children.map, res->path);
@@ -121,6 +127,9 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   *out = res;
   return pyg_ok();
+
+failed_vars_init:
+  pyg_hashmap_destroy(&res->target.map);
 
 failed_target_init:
   pyg_hashmap_cdelete(&res->root->children.map, res->path);
@@ -162,6 +171,9 @@ void pyg_free(pyg_t* pyg) {
   pyg_hashmap_iterate(&pyg->target.map, pyg_free_target, NULL);
   pyg_hashmap_destroy(&pyg->target.map);
 
+  pyg_hashmap_iterate(&pyg->vars, pyg_free_var, NULL);
+  pyg_hashmap_destroy(&pyg->vars);
+
   json_value_free(pyg->json);
   pyg->json = NULL;
   pyg->obj = NULL;
@@ -194,6 +206,13 @@ pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg) {
   free(target->source.list);
   free(target->deps.list);
   free(target);
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_free_var(pyg_hashmap_item_t* item, void* arg) {
+  free(item->value);
 
   return pyg_ok();
 }
@@ -297,12 +316,19 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   if (!pyg_is_ok(err))
     goto failed_target_name;
 
-  err = pyg_hashmap_cinsert(&pyg->target.map, name, target);
+  err = pyg_hashmap_init(&target->vars, kPygVarCount);
   if (!pyg_is_ok(err))
     goto failed_target_name;
+
+  err = pyg_hashmap_cinsert(&pyg->target.map, name, target);
+  if (!pyg_is_ok(err))
+    goto failed_cinsert;
   QUEUE_INSERT_TAIL(&pyg->target.list, &target->member);
 
   return pyg_ok();
+
+failed_cinsert:
+  pyg_hashmap_destroy(&target->vars);
 
 failed_target_name:
   free(target->source.list);

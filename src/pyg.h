@@ -37,6 +37,8 @@ struct pyg_s {
     QUEUE list;
   } target;
 
+  pyg_hashmap_t vars;
+
   QUEUE member;
 };
 
@@ -69,6 +71,8 @@ struct pyg_target_s {
     pyg_source_t* list;
     unsigned int count;
   } source;
+
+  pyg_hashmap_t vars;
 };
 
 enum pyg_source_type_e {
