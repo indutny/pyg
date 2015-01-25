@@ -388,6 +388,10 @@ char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2) {
   if (len2 >= 1 && p2[0] == dir_sep)
     return pyg_realpath(p2);
 
+  /* Library :( */
+  if (len2 >= 1 && (p2[0] == '-' || p2[0] == '$'))
+    return strdup(p2);
+
   /* Relative path */
   snprintf(buf, sizeof(buf), "%.*s%c%.*s", len1, p1, dir_sep, len2, p2);
   return pyg_realpath(buf);
@@ -500,6 +504,7 @@ pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from) {
   from_arr = json_value_get_array(from);
   to_arr = json_value_get_array(*to);
 
+  /* TODO(indutny): merge lists using suffixes */
   count = json_array_get_count(from_arr);
   for (i = 0; i < count; i++) {
     JSON_Value* from_value;
@@ -518,4 +523,9 @@ pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from) {
 
 pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from) {
   return pyg_merge_json_inplace(&to, from);
+}
+
+
+pyg_error_t pyg_eval_str(const char* str, pyg_hashmap_t* vars) {
+  return pyg_ok();
 }

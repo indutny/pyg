@@ -47,6 +47,7 @@ void* pyg_hashmap_get(pyg_hashmap_t* hashmap,
 pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
                                 pyg_hashmap_iterate_cb cb,
                                 void* arg);
+
 #define pyg_hashmap_cinsert(h, k, v)                                          \
     pyg_hashmap_insert((h), (k), strlen((k)), (v))
 #define pyg_hashmap_cdelete(h, k) pyg_hashmap_delete((h), (k), strlen((k)))
@@ -79,6 +80,9 @@ char* pyg_dirname(const char* path);
 char* pyg_realpath(const char* path);
 char* pyg_resolve(const char* p1, const char* p2);
 char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2);
+
+/* GYP specific stuff */
+pyg_error_t pyg_eval_str(const char* str, pyg_hashmap_t* vars);
 
 #define UNREACHABLE() do { abort(); } while (0)
 
