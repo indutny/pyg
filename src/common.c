@@ -14,9 +14,27 @@
 #define PYG_MURMUR3_C1 0xcc9e2d51
 #define PYG_MURMUR3_C2 0x1b873593
 
-static pyg_error_t pyg_merge_json_inplace(JSON_Value** to, JSON_Value* from);
-static pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from);
-static pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from);
+enum pyg_merge_mode_e {
+  kPygMergeStrict,
+  kPygMergeAuto,
+  kPygMergeReplace,
+  kPygMergeCond,
+  kPygMergePrepend,
+  kPygMergeExclude
+};
+typedef enum pyg_merge_mode_e pyg_merge_mode_t;
+
+static pyg_error_t pyg_merge_json_inplace(JSON_Value** to,
+                                          JSON_Value* from,
+                                          pyg_merge_mode_t mode);
+static pyg_error_t pyg_merge_json_obj(JSON_Value** to,
+                                      JSON_Value* from,
+                                      pyg_merge_mode_t mode);
+static pyg_error_t pyg_merge_json_arr(JSON_Value** to,
+                                      JSON_Value* from,
+                                      pyg_merge_mode_t mode);
+static JSON_Value* pyg_merge_json_exclude(JSON_Array* to, JSON_Array* from);
+static const char* pyg_merge_classify(const char* name, pyg_merge_mode_t* mode);
 
 #ifdef _MSC_VER
 static const char dir_sep = '\\';
@@ -429,7 +447,9 @@ char* pyg_filename(const char* path) {
 }
 
 
-pyg_error_t pyg_merge_json_inplace(JSON_Value** to, JSON_Value* from) {
+pyg_error_t pyg_merge_json_inplace(JSON_Value** to,
+                                   JSON_Value* from,
+                                   pyg_merge_mode_t mode) {
   /* Copy non-null primitives */
   if (json_value_get_type(*to) != JSONObject &&
       json_value_get_type(*to) != JSONArray &&
@@ -441,17 +461,48 @@ pyg_error_t pyg_merge_json_inplace(JSON_Value** to, JSON_Value* from) {
   if (json_value_get_type(*to) != json_value_get_type(from))
     return pyg_ok();
 
-  if (json_value_get_type(from) == JSONObject) {
-    return pyg_merge_json_obj(to, from);
-  } else if (json_value_get_type(from) == JSONArray) {
-    return pyg_merge_json_arr(to, from);
-  }
+  if (json_value_get_type(from) == JSONObject)
+    return pyg_merge_json_obj(to, from, mode);
+  else if (json_value_get_type(from) == JSONArray)
+    return pyg_merge_json_arr(to, from, mode);
 
   return pyg_ok();
 }
 
 
-pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from) {
+const char* pyg_merge_classify(const char* name, pyg_merge_mode_t* mode) {
+  static char buf[1024];
+  int len;
+
+  if (*mode == kPygMergeStrict)
+    goto skip;
+
+  len = strlen(name);
+  if (len < 1) {
+    *mode = kPygMergeAuto;
+    goto skip;
+  }
+
+  switch (name[len - 1]) {
+    case '=': *mode = kPygMergeReplace; break;
+    case '?': *mode = kPygMergeCond; break;
+    case '+': *mode = kPygMergePrepend; break;
+    case '!': *mode = kPygMergeExclude; break;
+    default: *mode = kPygMergeAuto; goto skip;
+  }
+
+  /* TODO(indutny): error on overflow */
+  snprintf(buf, sizeof(buf), "%.*s", len - 1, name);
+  return buf;
+
+skip:
+  return name;
+}
+
+
+pyg_error_t pyg_merge_json_obj(JSON_Value** to,
+                               JSON_Value* from,
+                               pyg_merge_mode_t mode) {
   size_t i;
   size_t count;
   JSON_Status st;
@@ -469,6 +520,8 @@ pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from) {
     JSON_Value* to_value;
 
     name = json_object_get_name(from_obj, i);
+    name = pyg_merge_classify(name, &mode);
+
     from_value = json_object_get_value(from_obj, name);
     to_value = json_object_get_value(to_obj, name);
 
@@ -481,7 +534,7 @@ pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from) {
       continue;
     }
 
-    err = pyg_merge_json_inplace(&to_value, from_value);
+    err = pyg_merge_json_inplace(&to_value, from_value, mode);
     if (!pyg_is_ok(err))
       return err;
 
@@ -494,17 +547,51 @@ pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from) {
 }
 
 
-pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from) {
+pyg_error_t pyg_merge_json_arr(JSON_Value** to,
+                               JSON_Value* from,
+                               pyg_merge_mode_t mode) {
   size_t i;
   size_t count;
   JSON_Status st;
   JSON_Array* from_arr;
   JSON_Array* to_arr;
 
+  if (mode == kPygMergeReplace) {
+    *to = json_value_deep_copy(from);
+    if (*to == NULL)
+      return pyg_error_str(kPygErrNoMem, "Failed to deep copy array");
+    return pyg_ok();
+  }
+
+  /* `to` is non-empty, conditiona failed anyway */
+  if (mode == kPygMergeCond)
+    return pyg_ok();
+
   from_arr = json_value_get_array(from);
   to_arr = json_value_get_array(*to);
 
-  /* TODO(indutny): merge lists using suffixes */
+  if (mode == kPygMergeExclude) {
+    *to = pyg_merge_json_exclude(to_arr, from_arr);
+    if (*to == NULL)
+      return pyg_error_str(kPygErrNoMem, "Failed to exclude copy array");
+    return pyg_ok();
+  }
+
+  /* Swap from and to */
+  if (mode == kPygMergePrepend) {
+    JSON_Value* tmp;
+
+    tmp = json_value_deep_copy(from);
+    if (tmp == NULL)
+      return pyg_error_str(kPygErrNoMem, "Failed to deep copy array");
+
+    from = *to;
+    *to = tmp;
+
+    from_arr = json_value_get_array(from);
+    to_arr = json_value_get_array(*to);
+  }
+
   count = json_array_get_count(from_arr);
   for (i = 0; i < count; i++) {
     JSON_Value* from_value;
@@ -521,8 +608,56 @@ pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from) {
 }
 
 
-pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from) {
-  return pyg_merge_json_inplace(&to, from);
+JSON_Value* pyg_merge_json_exclude(JSON_Array* to, JSON_Array* from) {
+  size_t i;
+  size_t j;
+  size_t from_count;
+  size_t to_count;
+  JSON_Value* dest;
+
+  dest = json_value_init_array();
+  if (dest == NULL)
+    return NULL;
+
+  to_count = json_array_get_count(to);
+  from_count = json_array_get_count(from);
+  for (i = 0; i < from_count; i++) {
+    JSON_Status st;
+    const char* val;
+
+    val = json_array_get_string(from, i);
+    if (val == NULL)
+      continue;
+    for (j = 0; j < to_count; j++) {
+      const char* other;
+
+      other = json_array_get_string(to, i);
+      if (other == NULL)
+        continue;
+
+      if (strcmp(other, val) == 0)
+        break;
+    }
+
+    /* Match found - skip */
+    if (j != to_count)
+      continue;
+
+    st = json_array_append_string(json_value_get_array(dest), val);
+    if (st != JSONSuccess) {
+      json_value_free(dest);
+      return NULL;
+    }
+  }
+
+  return dest;
+}
+
+
+pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from, int strict) {
+  return pyg_merge_json_inplace(&to,
+                                from,
+                                strict ? kPygMergeStrict : kPygMergeAuto);
 }
 
 
