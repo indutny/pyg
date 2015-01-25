@@ -41,6 +41,7 @@ struct pyg_s {
 };
 
 enum pyg_target_type_e {
+  kPygTargetNone,
   kPygTargetExecutable,
   kPygTargetStatic,
   kPygTargetShared,

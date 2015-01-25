@@ -63,6 +63,10 @@ pyg_error_t pyg_gen_ninja_target_cb(pyg_target_t* target,
                                     pyg_settings_t* settings) {
   pyg_error_t err;
 
+  /* TODO(indutny): actions? */
+  if (target->type == kPygTargetNone)
+    return pyg_ok();
+
   err = pyg_gen_ninja_print_rules(target, settings);
   if (!pyg_is_ok(err))
     return err;
@@ -198,6 +202,8 @@ pyg_error_t pyg_gen_ninja_print_build(pyg_target_t* target,
 
 const char* pyg_gen_ninja_link(pyg_target_t* target) {
   switch (target->type) {
+    case kPygTargetNone:
+      return "phony";
     case kPygTargetExecutable:
       if (target->source.types & kPygSourceCXX)
         return "ldxx";
@@ -217,6 +223,7 @@ const char* pyg_gen_ninja_link(pyg_target_t* target) {
 const char* pyg_gen_ninja_out_ext(pyg_target_type_t type) {
   /* TODO(indutny): windows, osx support */
   switch (type) {
+    case kPygTargetNone: return "";
     case kPygTargetExecutable: return "";
     case kPygTargetStatic: return ".a";
     case kPygTargetShared: return ".so";
@@ -234,16 +241,21 @@ pyg_error_t pyg_gen_ninja_print_link(pyg_target_t* target,
   link = pyg_gen_ninja_link(target);
   out_ext = pyg_gen_ninja_out_ext(target->type);
 
-  CHECKED_PRINT("build %s: %s",
-                pyg_gen_ninja_path(target, target->name, out_ext, settings),
-                pyg_gen_ninja_cmd(target, link));
+  if (target->source.count == 0) {
+    CHECKED_PRINT("build %s: phony\n",
+                  pyg_gen_ninja_path(target, target->name, out_ext, settings));
+  } else {
+    CHECKED_PRINT("build %s: %s",
+                  pyg_gen_ninja_path(target, target->name, out_ext, settings),
+                  pyg_gen_ninja_cmd(target, link));
 
-  for (i = 0; i < target->source.count; i++) {
-    pyg_source_t* src;
+    for (i = 0; i < target->source.count; i++) {
+      pyg_source_t* src;
 
-    src = &target->source.list[i];
-    CHECKED_PRINT(" %s",
-                  pyg_gen_ninja_path(target, src->out, "", settings));
+      src = &target->source.list[i];
+      CHECKED_PRINT(" %s",
+                    pyg_gen_ninja_path(target, src->out, "", settings));
+    }
   }
 
   for (i = 0; i < target->deps.count; i++) {

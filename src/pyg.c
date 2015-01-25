@@ -277,11 +277,6 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   /* Allocate space for source files */
   target->source.count =
       json_array_get_count(json_object_get_array(obj, "sources"));
-  if (target->source.count == 0) {
-    err = pyg_error_str(kPygErrGYP, "at least one source is required");
-    goto failed_alloc_source;
-  }
-
   target->source.list = calloc(target->source.count,
                                sizeof(*target->source.list));
   if (target->source.list == NULL) {
@@ -330,7 +325,9 @@ pyg_error_t pyg_target_type_from_str(const char* type, pyg_target_type_t* out) {
     return pyg_ok();
   }
 
-  if (strcmp(type, "executable") == 0)
+  if (strcmp(type, "none") == 0)
+    *out = kPygTargetNone;
+  else if (strcmp(type, "executable") == 0)
     *out = kPygTargetExecutable;
   else if (strcmp(type, "static_library") == 0)
     *out = kPygTargetStatic;
