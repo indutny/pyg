@@ -71,6 +71,7 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
                            pyg_iter_array_get_cb get,
                            pyg_iter_array_cb cb,
                            void* arg);
+pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from);
 
 const char* pyg_basename(const char* path);
 char* pyg_filename(const char* path);

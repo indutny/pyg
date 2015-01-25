@@ -14,6 +14,10 @@
 #define PYG_MURMUR3_C1 0xcc9e2d51
 #define PYG_MURMUR3_C2 0x1b873593
 
+static pyg_error_t pyg_merge_json_inplace(JSON_Value** to, JSON_Value* from);
+static pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from);
+static pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from);
+
 #ifdef _MSC_VER
 static const char dir_sep = '\\';
 #else
@@ -323,9 +327,9 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
 
       snprintf(msg,
                sizeof(msg),
-               "Invalid array item during iteration of `%s`[%lu]",
+               "Invalid array item during iteration of `%s`[%d]",
                label,
-               i);
+               (int) i);
 
       return pyg_error_str(kPygErrJSON, msg);
     }
@@ -418,4 +422,100 @@ char* pyg_filename(const char* path) {
   memcpy(res, base, p - base);
   res[p - base] = '\0';
   return res;
+}
+
+
+pyg_error_t pyg_merge_json_inplace(JSON_Value** to, JSON_Value* from) {
+  /* Copy non-null primitives */
+  if (json_value_get_type(*to) != JSONObject &&
+      json_value_get_type(*to) != JSONArray &&
+      json_value_get_type(from) != JSONNull) {
+    *to = from;
+    return pyg_ok();
+  }
+
+  if (json_value_get_type(*to) != json_value_get_type(from))
+    return pyg_ok();
+
+  if (json_value_get_type(from) == JSONObject) {
+    return pyg_merge_json_obj(to, from);
+  } else if (json_value_get_type(from) == JSONArray) {
+    return pyg_merge_json_arr(to, from);
+  }
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_merge_json_obj(JSON_Value** to, JSON_Value* from) {
+  size_t i;
+  size_t count;
+  JSON_Status st;
+  pyg_error_t err;
+  JSON_Object* from_obj;
+  JSON_Object* to_obj;
+
+  from_obj = json_value_get_object(from);
+  to_obj = json_value_get_object(*to);
+
+  count = json_object_get_count(from_obj);
+  for (i = 0; i < count; i++) {
+    const char* name;
+    JSON_Value* from_value;
+    JSON_Value* to_value;
+
+    name = json_object_get_name(from_obj, i);
+    from_value = json_object_get_value(from_obj, name);
+    to_value = json_object_get_value(to_obj, name);
+
+    /* New property */
+    if (to_value == NULL) {
+      st = json_object_set_value(to_obj, name, from_value);
+      if (st != JSONSuccess)
+        return pyg_error_str(kPygErrNoMem, "Failed to merge JSON (%s)", name);
+
+      continue;
+    }
+
+    err = pyg_merge_json_inplace(&to_value, from_value);
+    if (!pyg_is_ok(err))
+      return err;
+
+    st = json_object_set_value(to_obj, name, to_value);
+    if (st != JSONSuccess)
+      return pyg_error_str(kPygErrNoMem, "Failed to merge JSON (%s)", name);
+  }
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_merge_json_arr(JSON_Value** to, JSON_Value* from) {
+  size_t i;
+  size_t count;
+  JSON_Status st;
+  JSON_Array* from_arr;
+  JSON_Array* to_arr;
+
+  from_arr = json_value_get_array(from);
+  to_arr = json_value_get_array(*to);
+
+  count = json_array_get_count(from_arr);
+  for (i = 0; i < count; i++) {
+    JSON_Value* from_value;
+
+    from_value = json_array_get_value(from_arr, i);
+
+    /* TODO(indutny): de-duplicate? */
+    st = json_array_append_value(to_arr, from_value);
+    if (st != JSONSuccess)
+      return pyg_error_str(kPygErrNoMem, "Failed to merge JSON (%d)", (int) i);
+  }
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from) {
+  return pyg_merge_json_inplace(&to, from);
 }

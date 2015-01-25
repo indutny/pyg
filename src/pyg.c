@@ -446,7 +446,7 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
 
     path = json_array_get_string(arr, i);
     if (path == NULL)
-      return pyg_error_str(kPygErrJSON, "`%s`[%lu] not string", key, i);
+      return pyg_error_str(kPygErrJSON, "`%s`[%d] not string", key, (int) i);
 
     resolved = pyg_resolve(pyg->dir, path);
     if (resolved == NULL)
