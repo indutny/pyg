@@ -67,12 +67,27 @@ pyg_error_t pyg_buf_put(pyg_buf_t* buf, char* fmt, ...);
 void pyg_buf_print(pyg_buf_t* buf, FILE* out);
 
 /* JSON helpers */
+enum pyg_merge_mode_e {
+  kPygMergeStrict,
+  kPygMergeAuto,
+  kPygMergeReplace,
+  kPygMergeCond,
+  kPygMergePrepend,
+  kPygMergeExclude
+};
+typedef enum pyg_merge_mode_e pyg_merge_mode_t;
+
 pyg_error_t pyg_iter_array(JSON_Array* arr,
                            const char* label,
                            pyg_iter_array_get_cb get,
                            pyg_iter_array_cb cb,
                            void* arg);
-pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from, int strict);
+pyg_error_t pyg_merge_json(JSON_Value* to,
+                           JSON_Value* from,
+                           pyg_merge_mode_t mode);
+pyg_error_t pyg_clone_json(JSON_Value* value,
+                           pyg_merge_mode_t mode,
+                           JSON_Value** out);
 
 const char* pyg_basename(const char* path);
 char* pyg_filename(const char* path);

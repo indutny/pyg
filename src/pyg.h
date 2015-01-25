@@ -21,6 +21,7 @@ struct pyg_s {
   unsigned int child_count;
 
   JSON_Value* json;
+  JSON_Value* clone;
   JSON_Object* obj;
   char* path;
   char* dir;

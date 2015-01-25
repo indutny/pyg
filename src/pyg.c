@@ -40,6 +40,7 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
   pyg_error_t err;
   pyg_t* res;
   char* rpath;
+  JSON_Value* clone;
 
   rpath = pyg_realpath(path);
   if (rpath == NULL)
@@ -78,7 +79,12 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
     goto failed_parse_file;
   }
 
-  res->obj = json_object(res->json);
+  err = pyg_clone_json(res->json, kPygMergeAuto, &clone);
+  if (!pyg_is_ok(err))
+    goto failed_clone_json;
+  res->clone = clone;
+
+  res->obj = json_object(res->clone);
   if (res->obj == NULL) {
     err = pyg_error_str(kPygErrJSON, "JSON not object: %s", path);
     goto failed_to_object;
@@ -142,9 +148,13 @@ failed_children_init:
   free(res->dir);
   res->dir = NULL;
 
-failed_to_object:
+failed_clone_json:
   json_value_free(res->json);
   res->json = NULL;
+
+failed_to_object:
+  json_value_free(res->clone);
+  res->clone = NULL;
 
 failed_parse_file:
   free(res);
@@ -175,7 +185,9 @@ void pyg_free(pyg_t* pyg) {
   pyg_hashmap_destroy(&pyg->vars);
 
   json_value_free(pyg->json);
+  json_value_free(pyg->clone);
   pyg->json = NULL;
+  pyg->clone = NULL;
   pyg->obj = NULL;
 
   free(pyg);

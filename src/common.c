@@ -14,16 +14,6 @@
 #define PYG_MURMUR3_C1 0xcc9e2d51
 #define PYG_MURMUR3_C2 0x1b873593
 
-enum pyg_merge_mode_e {
-  kPygMergeStrict,
-  kPygMergeAuto,
-  kPygMergeReplace,
-  kPygMergeCond,
-  kPygMergePrepend,
-  kPygMergeExclude
-};
-typedef enum pyg_merge_mode_e pyg_merge_mode_t;
-
 static pyg_error_t pyg_merge_json_inplace(JSON_Value** to,
                                           JSON_Value* from,
                                           pyg_merge_mode_t mode);
@@ -454,7 +444,11 @@ pyg_error_t pyg_merge_json_inplace(JSON_Value** to,
   if (json_value_get_type(*to) != JSONObject &&
       json_value_get_type(*to) != JSONArray &&
       json_value_get_type(from) != JSONNull) {
-    *to = from;
+    JSON_Value* tmp;
+    tmp = json_value_deep_copy(from);
+    if (tmp == NULL)
+      return pyg_error_str(kPygErrNoMem, "json_value_deep_copy");
+    *to = tmp;
     return pyg_ok();
   }
 
@@ -520,16 +514,23 @@ pyg_error_t pyg_merge_json_obj(JSON_Value** to,
     JSON_Value* to_value;
 
     name = json_object_get_name(from_obj, i);
-    name = pyg_merge_classify(name, &mode);
-
     from_value = json_object_get_value(from_obj, name);
-    to_value = json_object_get_value(to_obj, name);
+
+    to_value = json_object_get_value(to_obj, pyg_merge_classify(name, &mode));
 
     /* New property */
     if (to_value == NULL) {
-      st = json_object_set_value(to_obj, name, from_value);
-      if (st != JSONSuccess)
+      err = pyg_clone_json(from_value, mode, &from_value);
+      if (!pyg_is_ok(err))
+        return err;
+
+      st = json_object_set_value(to_obj,
+                                 pyg_merge_classify(name, &mode),
+                                 from_value);
+      if (st != JSONSuccess) {
+        json_value_free(from_value);
         return pyg_error_str(kPygErrNoMem, "Failed to merge JSON (%s)", name);
+      }
 
       continue;
     }
@@ -563,7 +564,7 @@ pyg_error_t pyg_merge_json_arr(JSON_Value** to,
     return pyg_ok();
   }
 
-  /* `to` is non-empty, conditiona failed anyway */
+  /* `to` is non-empty, conditional failed anyway */
   if (mode == kPygMergeCond)
     return pyg_ok();
 
@@ -595,13 +596,24 @@ pyg_error_t pyg_merge_json_arr(JSON_Value** to,
   count = json_array_get_count(from_arr);
   for (i = 0; i < count; i++) {
     JSON_Value* from_value;
+    pyg_error_t err;
 
-    from_value = json_array_get_value(from_arr, i);
+    err = pyg_clone_json(json_array_get_value(from_arr, i),
+                         mode,
+                         &from_value);
+    if (!pyg_is_ok(err)) {
+      if (mode == kPygMergePrepend)
+        json_value_free(*to);
+      return err;
+    }
 
     /* TODO(indutny): de-duplicate? */
     st = json_array_append_value(to_arr, from_value);
-    if (st != JSONSuccess)
+    if (st != JSONSuccess) {
+      if (mode == kPygMergePrepend)
+        json_value_free(*to);
       return pyg_error_str(kPygErrNoMem, "Failed to merge JSON (%d)", (int) i);
+    }
   }
 
   return pyg_ok();
@@ -654,10 +666,52 @@ JSON_Value* pyg_merge_json_exclude(JSON_Array* to, JSON_Array* from) {
 }
 
 
-pyg_error_t pyg_merge_json(JSON_Value* to, JSON_Value* from, int strict) {
-  return pyg_merge_json_inplace(&to,
-                                from,
-                                strict ? kPygMergeStrict : kPygMergeAuto);
+pyg_error_t pyg_clone_json(JSON_Value* value,
+                           pyg_merge_mode_t mode,
+                           JSON_Value** out) {
+  pyg_error_t err;
+  JSON_Value_Type type;
+  JSON_Value* res;
+
+  if (mode == kPygMergeStrict) {
+    res = json_value_deep_copy(value);
+    goto done;
+  }
+
+  /* Primitive - non clonable */
+  type = json_value_get_type(value);
+  if ((type != JSONObject && type != JSONArray) ||
+      (type == JSONArray && mode == kPygMergeCond)) {
+    res = json_value_deep_copy(value);
+    goto done;
+  }
+
+  if (type == JSONObject)
+    res = json_value_init_object();
+  else
+    res = json_value_init_array();
+  if (res == NULL)
+    return pyg_error_str(kPygErrNoMem, "json_value_init_object/array()");
+
+  err = pyg_merge_json(res, value, mode);
+  if (!pyg_is_ok(err)) {
+    json_value_free(res);
+    return err;
+  }
+
+done:
+  if (res == NULL)
+    return pyg_error_str(kPygErrNoMem, "Failed to allocate clone result");
+
+  *out = res;
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_merge_json(JSON_Value* to,
+                           JSON_Value* from,
+                           pyg_merge_mode_t mode) {
+  return pyg_merge_json_inplace(&to, from, mode);
 }
 
 
