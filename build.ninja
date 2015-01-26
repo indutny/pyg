@@ -28,11 +28,11 @@ rule ar_pyg_0
   command = libtool -static -o $out $in
   description = LIBTOOL-STATIC $out
 
-build build/0/pyg/common_0.o: cc_pyg_0 /Users/indutny/Code/indutny/pyg/src/common.c
-build build/0/pyg/error_1.o: cc_pyg_0 /Users/indutny/Code/indutny/pyg/src/error.c
-build build/0/pyg/pyg_2.o: cc_pyg_0 /Users/indutny/Code/indutny/pyg/src/pyg.c
-build build/0/pyg/ninja_3.o: cc_pyg_0 /Users/indutny/Code/indutny/pyg/src/generator/ninja.c
-build build/0/pyg/cli_4.o: cc_pyg_0 /Users/indutny/Code/indutny/pyg/src/cli.c
+build build/0/pyg/common_0.o: cc_pyg_0 src/common.c
+build build/0/pyg/error_1.o: cc_pyg_0 src/error.c
+build build/0/pyg/pyg_2.o: cc_pyg_0 src/pyg.c
+build build/0/pyg/ninja_3.o: cc_pyg_0 src/generator/ninja.c
+build build/0/pyg/cli_4.o: cc_pyg_0 src/cli.c
 build build/0/pyg/pyg: ld_pyg_0 build/0/pyg/common_0.o build/0/pyg/error_1.o build/0/pyg/pyg_2.o build/0/pyg/ninja_3.o build/0/pyg/cli_4.o build/0/parson/parson.a
 build build/pyg: copy build/0/pyg/pyg
 build pyg: phony build/pyg
@@ -57,7 +57,7 @@ rule ar_parson_0
   command = libtool -static -o $out $in
   description = LIBTOOL-STATIC $out
 
-build build/0/parson/parson_0.o: cc_parson_0 /Users/indutny/Code/indutny/pyg/deps/parson/parson.c
+build build/0/parson/parson_0.o: cc_parson_0 deps/parson/parson.c
 build build/0/parson/parson.a: ar_parson_0 build/0/parson/parson_0.o
 build build/parson.a: copy build/0/parson/parson.a
 build parson: phony build/parson.a

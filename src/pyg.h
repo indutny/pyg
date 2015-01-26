@@ -99,6 +99,7 @@ struct pyg_source_s {
 
 struct pyg_settings_s {
   const char* builddir;
+  const char* deprefix;
 
   struct pyg_gen_s* gen;
   pyg_buf_t* out;

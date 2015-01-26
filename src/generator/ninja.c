@@ -3,6 +3,7 @@
 #include "src/pyg.h"
 
 #include <limits.h>  /* PATH_MAX */
+#include <string.h>
 
 #define CHECKED_PRINT(...)                                                    \
     do {                                                                      \
@@ -29,6 +30,8 @@ static const char* pyg_gen_ninja_path(pyg_target_t* target,
                                       const char* name,
                                       const char* ext,
                                       pyg_settings_t* settings);
+static const char* pyg_gen_ninja_src_path(const char* path,
+                                          pyg_settings_t* settings);
 
 pyg_gen_t pyg_gen_ninja = {
   .prologue_cb = pyg_gen_ninja_prologue_cb,
@@ -193,7 +196,7 @@ pyg_error_t pyg_gen_ninja_print_build(pyg_target_t* target,
     CHECKED_PRINT("build %s: %s %s\n",
                   pyg_gen_ninja_path(target, src->out, "", settings),
                   pyg_gen_ninja_cmd(target, rule),
-                  src->path);
+                  pyg_gen_ninja_src_path(src->path, settings));
   }
 
   return pyg_ok();
@@ -313,4 +316,25 @@ const char* pyg_gen_ninja_path(pyg_target_t* target,
            name,
            ext);
   return out;
+}
+
+
+const char* pyg_gen_ninja_src_path(const char* path, pyg_settings_t* settings) {
+  int dlen;
+  int plen;
+
+  if (settings->deprefix == NULL)
+    return path;
+
+  dlen = strlen(settings->deprefix);
+  plen = strlen(path);
+
+  if (plen < dlen)
+    return path;
+
+  if (memcmp(settings->deprefix, path, dlen) != 0)
+    return path;
+
+  /* Skip prefix and `/` */
+  return path + dlen + 1;
 }

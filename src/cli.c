@@ -40,6 +40,11 @@ int main(int argc, char** argv) {
   settings.builddir = "build";
   settings.gen = &pyg_gen_ninja;
   settings.out = &buf;
+  settings.deprefix = pyg_realpath(".");
+  if (settings.deprefix == NULL) {
+    err = pyg_error_str(kPygErrFS, "Failed to get realpath of deprefix");
+    goto failed_deprefix;
+  }
 
   err = pyg_translate(pyg, &settings);
   if (!pyg_is_ok(err)) {
@@ -54,6 +59,9 @@ int main(int argc, char** argv) {
   r = 0;
 
 failed_pyg_translate:
+  free((char*) settings.deprefix);
+
+failed_deprefix:
   pyg_free(pyg);
 
 failed_pyg_new:
