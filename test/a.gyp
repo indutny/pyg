@@ -1,4 +1,8 @@
 {
+  "variables": {
+    "hello": "ohai",
+    "ok": "abc <(hello) def"
+  },
   "targets": [{
     'target_name': "a",
 
