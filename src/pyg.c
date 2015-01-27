@@ -19,6 +19,10 @@ static pyg_error_t pyg_free_child(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_free_var(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_load(pyg_t* pyg);
+static pyg_error_t pyg_load_variables(pyg_t* pyg,
+                                      JSON_Object* json,
+                                      pyg_hashmap_t* out);
+static pyg_error_t pyg_load_targets(pyg_t* pyg);
 static pyg_error_t pyg_load_target(void* val,
                                    size_t i,
                                    size_t count,
@@ -34,6 +38,10 @@ static pyg_error_t pyg_resolve_json(pyg_t* pyg,
 static pyg_error_t pyg_target_type_from_str(const char* type,
                                             pyg_target_type_t* out);
 static pyg_error_t pyg_create_sources(pyg_target_t* target);
+static pyg_error_t pyg_eval_str(struct pyg_s* pyg,
+                                pyg_hashmap_t* vars,
+                                const char* str,
+                                char** out);
 
 
 pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
@@ -232,10 +240,64 @@ pyg_error_t pyg_free_var(pyg_hashmap_item_t* item, void* arg) {
 
 pyg_error_t pyg_load(pyg_t* pyg) {
   pyg_error_t err;
+
+  /* TODO(indutny): Support target_defaults */
+  err = pyg_load_variables(pyg, pyg->obj, &pyg->vars);
+  if (!pyg_is_ok(err))
+    return err;
+
+  return pyg_load_targets(pyg);
+}
+
+
+pyg_error_t pyg_load_variables(pyg_t* pyg,
+                               JSON_Object* json,
+                               pyg_hashmap_t* out) {
+  size_t i;
+  size_t count;
+  JSON_Value* val;
+  JSON_Object* vars;
+
+  val = json_object_get_value(json, "variables");
+  if (val == NULL)
+    return pyg_ok();
+  vars = json_value_get_object(val);
+  if (vars == NULL)
+    return pyg_error_str(kPygErrGYP, "`variables` not object");
+
+  count = json_object_get_count(vars);
+  for (i = 0; i < count; i++) {
+    pyg_error_t err;
+    const char* name;
+    const char* str;
+    char* value;
+
+    name = json_object_get_name(vars, i);
+    str = json_object_get_string(vars, name);
+    if (str == NULL)
+      return pyg_error_str(kPygErrGYP, "`variables`[%d] not string", (int) i);
+
+    /* Evaluate variable using all known variables at the point */
+    /* TODO(indutny): ./pyg ... -D... -D... - how should this handle it? */
+    err = pyg_eval_str(pyg, out, str, &value);
+    if (!pyg_is_ok(err))
+      return err;
+
+    err = pyg_hashmap_cinsert(out, name, value);
+    if (!pyg_is_ok(err)) {
+      free(value);
+      return err;
+    }
+  }
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_load_targets(pyg_t* pyg) {
+  pyg_error_t err;
   JSON_Array* targets;
   QUEUE* q;
-
-  /* TODO(indutny): Support variables and target_defaults */
 
   /* Visit targets */
   targets = json_object_get_array(pyg->obj, "targets");
@@ -583,5 +645,20 @@ pyg_error_t pyg_translate(pyg_t* pyg, pyg_settings_t* settings) {
 
   settings->gen->epilogue_cb(settings);
 
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_eval_str(pyg_t* pyg,
+                         pyg_hashmap_t* vars,
+                         const char* str,
+                         char** out) {
+  char* res;
+
+  res = strdup(str);
+  if (res == NULL)
+    return pyg_error_str(kPygErrNoMem, "Failed to strdup() eval string");
+
+  *out = res;
   return pyg_ok();
 }

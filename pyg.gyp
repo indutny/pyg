@@ -1,5 +1,8 @@
 {
-  "targets?": [{
+  "variables": {
+    "hello": "world",
+  },
+  "targets": [{
     "target_name": "pyg",
     "type": "executable",
 

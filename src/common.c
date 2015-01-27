@@ -713,8 +713,3 @@ pyg_error_t pyg_merge_json(JSON_Value* to,
                            pyg_merge_mode_t mode) {
   return pyg_merge_json_inplace(&to, from, mode);
 }
-
-
-pyg_error_t pyg_eval_str(const char* str, pyg_hashmap_t* vars) {
-  return pyg_ok();
-}

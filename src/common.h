@@ -96,9 +96,6 @@ char* pyg_realpath(const char* path);
 char* pyg_resolve(const char* p1, const char* p2);
 char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2);
 
-/* GYP specific stuff */
-pyg_error_t pyg_eval_str(const char* str, pyg_hashmap_t* vars);
-
 #define UNREACHABLE() do { abort(); } while (0)
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
