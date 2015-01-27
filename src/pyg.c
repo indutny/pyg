@@ -269,10 +269,15 @@ pyg_error_t pyg_load_variables(pyg_t* pyg,
   for (i = 0; i < count; i++) {
     pyg_error_t err;
     const char* name;
+    int len;
     const char* str;
     char* value;
+    char key_st[1024];
+    const char* key;
 
     name = json_object_get_name(vars, i);
+    len = strlen(name);
+
     str = json_object_get_string(vars, name);
     if (str == NULL)
       return pyg_error_str(kPygErrGYP, "`variables`[%d] not string", (int) i);
@@ -283,7 +288,20 @@ pyg_error_t pyg_load_variables(pyg_t* pyg,
     if (!pyg_is_ok(err))
       return err;
 
-    err = pyg_hashmap_cinsert(out, name, value);
+    /* Default value */
+    if (name[len - 1] == '%') {
+      key = key_st;
+      snprintf(key_st, sizeof(key_st), "%.*s", len - 1, name);
+
+      if (pyg_hashmap_cget(out, key) != NULL)
+        continue;
+      if (pyg_hashmap_cget(&pyg->vars, key) != NULL)
+        continue;
+    } else {
+      key = name;
+    }
+
+    err = pyg_hashmap_cinsert(out, key, value);
     if (!pyg_is_ok(err)) {
       free(value);
       return err;
