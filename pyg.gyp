@@ -1,7 +1,4 @@
 {
-  "variables": {
-    "hello": "world",
-  },
   "targets": [{
     "target_name": "pyg",
     "type": "executable",
@@ -23,6 +20,8 @@
       "src/pyg.c",
       "src/generator/ninja.c",
       "src/cli.c",
+      "src/json.c",
+      "src/eval.c",
     ]
   }, {
     "target_name": "parson",
