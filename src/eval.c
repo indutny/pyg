@@ -378,6 +378,8 @@ pyg_error_t pyg_eval_test(pyg_proto_hashmap_t* vars,
 
   err = pyg_eval_ast(vars, ast, &val);
   pyg_ast_free(ast);
+  if (!pyg_is_ok(err))
+    return err;
 
   *out = pyg_value_to_bool(&val);
   return err;
