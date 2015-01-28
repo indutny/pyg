@@ -702,15 +702,17 @@ pyg_error_t pyg_resolve_json(pyg_target_t* target,
       return err;
 
     resolved = pyg_resolve(target->pyg->dir, epath);
-    free(epath);
     if (resolved == NULL) {
-      return pyg_error_str(kPygErrFS,
-                           "pyg_resolve(%s, %s)",
-                           target->pyg->dir,
-                           path);
+      err = pyg_error_str(kPygErrFS,
+                          "pyg_resolve(%s, %s)",
+                          target->pyg->dir,
+                          epath);
+      free(epath);
+      return err;
     }
 
     status = json_array_replace_string(arr, i, resolved);
+    free(epath);
     free(resolved);
     if (status != JSONSuccess)
       return pyg_error_str(kPygErrJSON, "Failed to insert string into array");
