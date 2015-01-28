@@ -165,3 +165,12 @@ pyg_error_t pyg_eval_write(pyg_t* pyg,
 
   return pyg_ok();
 }
+
+
+pyg_error_t pyg_eval_test(pyg_t* pyg,
+                          pyg_hashmap_t* vars,
+                          const char* str,
+                          int* out) {
+  *out = 1;
+  return pyg_ok();
+}

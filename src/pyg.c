@@ -25,6 +25,9 @@ static pyg_error_t pyg_load(pyg_t* pyg);
 static pyg_error_t pyg_load_variables(pyg_t* pyg,
                                       JSON_Object* json,
                                       pyg_hashmap_t* out);
+static pyg_error_t pyg_eval_conditions(pyg_t* pyg,
+                                       JSON_Object* json,
+                                       pyg_hashmap_t* vars);
 static pyg_error_t pyg_load_targets(pyg_t* pyg);
 static pyg_error_t pyg_load_target(void* val,
                                    size_t i,
@@ -245,6 +248,10 @@ pyg_error_t pyg_load(pyg_t* pyg) {
   if (!pyg_is_ok(err))
     return err;
 
+  err = pyg_eval_conditions(pyg, pyg->obj, &pyg->vars);
+  if (!pyg_is_ok(err))
+    return err;
+
   return pyg_load_targets(pyg);
 }
 
@@ -317,8 +324,70 @@ pyg_error_t pyg_add_var(pyg_t* pyg,
   }
 
   err = pyg_hashmap_cinsert(vars, ekey, evalue);
-  free(evalue);
+  if (!pyg_is_ok(err))
+    free(evalue);
   return err;
+}
+
+
+pyg_error_t pyg_eval_conditions(pyg_t* pyg,
+                                JSON_Object* json,
+                                pyg_hashmap_t* vars) {
+  size_t i;
+  size_t count;
+  JSON_Value* val;
+  JSON_Array* conds;
+
+  val = json_object_get_value(json, "conditions");
+  if (val == NULL)
+    return pyg_ok();
+  conds = json_value_get_array(val);
+  if (conds == NULL)
+    return pyg_error_str(kPygErrGYP, "`conditions` not array");
+
+  count = json_array_get_count(conds);
+  for (i = 0; i < count; i++) {
+    pyg_error_t err;
+    JSON_Array* pair;
+    size_t pair_size;
+    const char* test;
+    char* etest;
+    int btest;
+    JSON_Object* branch;
+
+    pair = json_array_get_array(conds, i);
+    if (pair == NULL)
+      return pyg_error_str(kPygErrGYP, "`conditions`[%d] not array", (int) i);
+
+    pair_size = json_array_get_count(pair);
+    if (!(pair_size == 2 || pair_size == 3)) {
+      return pyg_error_str(kPygErrGYP,
+                           "`conditions`[%d] has invalid length", (int) i);
+    }
+
+    test = json_array_get_string(pair, 0);
+    err = pyg_eval_str(pyg, vars, test, &etest);
+    if (!pyg_is_ok(err))
+      return err;
+
+    err = pyg_eval_test(pyg, vars, etest, &btest);
+    free(etest);
+    if (!pyg_is_ok(err))
+      return err;
+
+    /* No else branch */
+    if (btest == 0 && pair_size == 2)
+      continue;
+
+    branch = json_array_get_object(pair, btest == 0 ? 2 : 1);
+    if (branch == NULL) {
+      return pyg_error_str(kPygErrGYP,
+                           "`conditions`[%d] branch not object",
+                           (int) i);
+    }
+  }
+
+  return pyg_ok();
 }
 
 
@@ -423,6 +492,10 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
     goto failed_target_name;
 
   err = pyg_load_variables(pyg, target->json, &target->vars);
+  if (!pyg_is_ok(err))
+    goto failed_cinsert;
+
+  err = pyg_eval_conditions(pyg, target->json, &target->vars);
   if (!pyg_is_ok(err))
     goto failed_cinsert;
 

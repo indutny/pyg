@@ -13,7 +13,14 @@
 
     "sources": [
       "../src/pyg.c",
-      "./ohai.c",
+    ],
+
+    "conditions": [
+      ["hello == 'ohai'", {
+        "sources": [
+          "./ohai.c",
+        ],
+      }],
     ],
   }, {
     "target_name": "b",
