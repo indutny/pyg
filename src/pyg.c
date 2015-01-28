@@ -369,6 +369,7 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
     JSON_Array* pair;
     size_t pair_size;
     const char* test;
+    char* etest;
     int btest;
     JSON_Object* branch;
 
@@ -383,8 +384,12 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
     }
 
     test = json_array_get_string(pair, 0);
+    err = pyg_unroll_str(pyg, vars, test, &etest);
+    if (!pyg_is_ok(err))
+      return err;
 
-    err = pyg_eval_test(pyg, vars, test, &btest);
+    err = pyg_eval_test(pyg, vars, etest, &btest);
+    free(etest);
     if (!pyg_is_ok(err))
       return err;
 

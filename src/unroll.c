@@ -65,6 +65,37 @@ pyg_error_t pyg_unroll_value(struct pyg_s* pyg,
 }
 
 
+pyg_error_t pyg_unroll_str(struct pyg_s* pyg,
+                           pyg_hashmap_t* vars,
+                           const char* input,
+                           char** out) {
+  pyg_error_t err;
+  pyg_str_t str;
+  int size;
+  char* res;
+
+  str.str = input;
+  str.len = strlen(input);
+  err = pyg_unroll_calc_size(pyg, vars, &str, &size);
+  if (!pyg_is_ok(err))
+    return err;
+
+  /* Embed string in the structure */
+  res = malloc(size + 1);
+  if (res == NULL)
+    return pyg_error_str(kPygErrNoMem, "Failed to malloc() unroll result");
+
+  err = pyg_unroll_write(pyg, vars, &str, res);
+  if (!pyg_is_ok(err)) {
+    free(res);
+    return err;
+  }
+
+  *out = res;
+  return pyg_ok();
+}
+
+
 pyg_error_t pyg_unroll_calc_size(pyg_t* pyg,
                                  pyg_hashmap_t* vars,
                                  pyg_str_t* str,
