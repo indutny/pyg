@@ -92,7 +92,7 @@ typedef enum pyg_source_type_e pyg_source_type_t;
 
 struct pyg_source_s {
   pyg_source_type_t type;
-  char* path;
+  const char* path;
   char* out;
   char* filename;
 };

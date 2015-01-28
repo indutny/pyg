@@ -420,3 +420,39 @@ int pyg_value_to_bool(pyg_value_t* val) {
       return -1;
   }
 }
+
+
+pyg_error_t pyg_value_to_str(pyg_value_t* val, char** out) {
+  char* res;
+  switch (val->type) {
+    case kPygValueBool:
+      res = strdup(val->value.num ? "true" : "false");
+      break;
+    case kPygValueInt:
+      {
+        int n;
+
+        n = snprintf(NULL, 0, "%d", val->value.num);
+        res = malloc(n + 1);
+        if (res != NULL)
+          snprintf(res, n, "%d", val->value.num);
+      }
+      break;
+    case kPygValueStr:
+      res = malloc(val->value.str.len);
+      if (res != NULL) {
+        memcpy(res, val->value.str.str, val->value.str.len);
+        res[val->value.str.len] = '\0';
+      }
+      break;
+    default:
+      UNREACHABLE();
+      return pyg_ok();
+  }
+
+  if (res == NULL)
+    return pyg_error_str(kPygErrNoMem, "pyg_value_t to str");
+
+  *out = res;
+  return pyg_ok();
+}

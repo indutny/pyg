@@ -39,7 +39,7 @@ static pyg_error_t pyg_load_target_dep(void* val,
                                        size_t i,
                                        size_t count,
                                        void* arg);
-static pyg_error_t pyg_resolve_json(pyg_t* pyg,
+static pyg_error_t pyg_resolve_json(pyg_target_t* pyg,
                                     JSON_Object* json,
                                     const char* key);
 static pyg_error_t pyg_target_type_from_str(const char* type,
@@ -223,7 +223,6 @@ pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg) {
   QUEUE_REMOVE(&target->member);
 
   for (i = 0; i < target->source.count; i++) {
-    free(target->source.list[i].path);
     free(target->source.list[i].out);
     free(target->source.list[i].filename);
   }
@@ -450,9 +449,9 @@ pyg_error_t pyg_load_targets(pyg_t* pyg) {
       return err;
 
     /* Resolve various path arrays in JSON */
-    err = pyg_resolve_json(pyg, target->json, "sources");
+    err = pyg_resolve_json(target, target->json, "sources");
     if (pyg_is_ok(err))
-      err = pyg_resolve_json(pyg, target->json, "include_dirs");
+      err = pyg_resolve_json(target, target->json, "include_dirs");
     if (!pyg_is_ok(err))
       return err;
 
@@ -659,7 +658,9 @@ done:
 }
 
 
-pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
+pyg_error_t pyg_resolve_json(pyg_target_t* target,
+                             JSON_Object* json,
+                             const char* key) {
   JSON_Value* val;
   JSON_Array* arr;
   size_t i;
@@ -677,7 +678,9 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
 
   count = json_array_get_count(arr);
   for (i = 0; i < count; i++) {
+    pyg_error_t err;
     const char* path;
+    char* epath;
     char* resolved;
     JSON_Status status;
 
@@ -685,9 +688,18 @@ pyg_error_t pyg_resolve_json(pyg_t* pyg, JSON_Object* json, const char* key) {
     if (path == NULL)
       return pyg_error_str(kPygErrJSON, "`%s`[%d] not string", key, (int) i);
 
-    resolved = pyg_resolve(pyg->dir, path);
-    if (resolved == NULL)
-      return pyg_error_str(kPygErrFS, "pyg_resolve(%s, %s)", pyg->dir, path);
+    err = pyg_unroll_str(&target->vars, path, &epath);
+    if (!pyg_is_ok(err))
+      return err;
+
+    resolved = pyg_resolve(target->pyg->dir, epath);
+    free(epath);
+    if (resolved == NULL) {
+      return pyg_error_str(kPygErrFS,
+                           "pyg_resolve(%s, %s)",
+                           target->pyg->dir,
+                           path);
+    }
 
     status = json_array_replace_string(arr, i, resolved);
     free(resolved);
@@ -705,18 +717,12 @@ pyg_error_t pyg_create_sources(pyg_target_t* target) {
 
   arr = json_object_get_array(target->json, "sources");
   for (i = 0; i < target->source.count; i++) {
-    pyg_error_t err;
     pyg_source_t* src;
     const char* ext;
     int n;
 
     src = &target->source.list[i];
-
-    err = pyg_unroll_str(&target->vars,
-                         json_array_get_string(arr, i),
-                         &src->path);
-    if (!pyg_is_ok(err))
-      return err;
+    src->path = json_array_get_string(arr, i);
     ext = strrchr(src->path, '.');
 
     /* No extension - skip */

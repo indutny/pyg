@@ -175,19 +175,27 @@ pyg_error_t pyg_unroll_write(pyg_proto_hashmap_t* vars,
         break;
       case kPygUnrollName:
         {
+          pyg_error_t err;
           int len;
-          const char* value;
+          pyg_value_t* value;
+          char* str_value;
+
           if (ch != ')')
             continue;
 
           value = pyg_proto_hashmap_get(vars, mark, p - mark);
           assert(value != NULL);
 
+          err = pyg_value_to_str(value, &str_value);
+          if (!pyg_is_ok(err))
+            return err;
+
           /* Revert `<(` */
           pout -= 2;
-          len = strlen(value);
-          memcpy(pout, value, len);
+          len = strlen(str_value);
+          memcpy(pout, str_value, len);
           pout += len;
+          free(str_value);
 
           st = kPygUnrollLT;
           /* Skip copying `)` */

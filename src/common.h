@@ -107,6 +107,7 @@ char* pyg_resolve(const char* p1, const char* p2);
 char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2);
 
 int pyg_value_to_bool(pyg_value_t* val);
+pyg_error_t pyg_value_to_str(pyg_value_t* val, char** out);
 
 #define UNREACHABLE() do { abort(); } while (0)
 
