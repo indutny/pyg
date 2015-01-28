@@ -142,7 +142,7 @@ pyg_error_t pyg_gen_ninja_print_rules(pyg_target_t* target,
   }
   if (pyg_is_ok(err)) {
     err = pyg_buf_put(settings->out,
-                      "%s = %s\n",
+                      "%s = %s\n\n",
                       pyg_gen_ninja_cmd(target, "ldflags"),
                       ldflags);
   }

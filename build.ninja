@@ -1,4 +1,4 @@
-cc = /Users/indutny/Code/llvm_cmake_build/bin/clang -fsanitize=address
+cc = cc
 cxx = c++
 ld = $cc
 ldxx = $cxx
