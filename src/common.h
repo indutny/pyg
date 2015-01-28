@@ -19,6 +19,28 @@ typedef pyg_error_t (*pyg_iter_array_cb)(void* val,
                                          void* arg);
 typedef void* (*pyg_iter_array_get_cb)(JSON_Array* arr, size_t i);
 typedef struct pyg_buf_s pyg_buf_t;
+typedef struct pyg_str_s pyg_str_t;
+typedef struct pyg_value_s pyg_value_t;
+
+struct pyg_str_s {
+  const char* str;
+  int len;
+};
+
+enum pyg_value_type_e {
+  kPygValueStr,
+  kPygValueInt,
+  kPygValueBool
+};
+typedef enum pyg_value_type_e pyg_value_type_t;
+
+struct pyg_value_s {
+  pyg_value_type_t type;
+  union {
+    pyg_str_t str;
+    int num;
+  } value;
+};
 
 struct pyg_hashmap_s {
   pyg_hashmap_item_t* space;
@@ -72,6 +94,8 @@ char* pyg_dirname(const char* path);
 char* pyg_realpath(const char* path);
 char* pyg_resolve(const char* p1, const char* p2);
 char* pyg_nresolve(const char* p1, int len1, const char* p2, int len2);
+
+int pyg_value_to_bool(pyg_value_t* val);
 
 #define UNREACHABLE() do { abort(); } while (0)
 

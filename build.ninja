@@ -35,7 +35,8 @@ build build/0/pyg/ninja_3.o: cc_pyg_0 src/generator/ninja.c
 build build/0/pyg/cli_4.o: cc_pyg_0 src/cli.c
 build build/0/pyg/json_5.o: cc_pyg_0 src/json.c
 build build/0/pyg/eval_6.o: cc_pyg_0 src/eval.c
-build build/0/pyg/pyg: ld_pyg_0 build/0/pyg/common_0.o build/0/pyg/error_1.o build/0/pyg/pyg_2.o build/0/pyg/ninja_3.o build/0/pyg/cli_4.o build/0/pyg/json_5.o build/0/pyg/eval_6.o build/0/parson/parson.a
+build build/0/pyg/unroll_7.o: cc_pyg_0 src/unroll.c
+build build/0/pyg/pyg: ld_pyg_0 build/0/pyg/common_0.o build/0/pyg/error_1.o build/0/pyg/pyg_2.o build/0/pyg/ninja_3.o build/0/pyg/cli_4.o build/0/pyg/json_5.o build/0/pyg/eval_6.o build/0/pyg/unroll_7.o build/0/parson/parson.a
 build build/pyg: copy build/0/pyg/pyg
 build pyg: phony build/pyg
 

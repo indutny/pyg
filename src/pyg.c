@@ -5,6 +5,7 @@
 #include "src/generator/base.h"
 #include "src/json.h"
 #include "src/queue.h"
+#include "src/unroll.h"
 
 #include "parson.h"
 
@@ -274,16 +275,35 @@ pyg_error_t pyg_load_variables(pyg_t* pyg,
   count = json_object_get_count(vars);
   for (i = 0; i < count; i++) {
     pyg_error_t err;
+    JSON_Value* prop;
     const char* name;
-    const char* str;
+    pyg_value_t val;
 
     name = json_object_get_name(vars, i);
+    prop = json_object_get_value(vars, name);
 
-    str = json_object_get_string(vars, name);
-    if (str == NULL)
-      return pyg_error_str(kPygErrGYP, "`variables`[%d] not string", (int) i);
+    switch (json_value_get_type(prop)) {
+      case JSONString:
+        {
+          const char* str;
 
-    err = pyg_add_var(pyg, out, name, str);
+          str = json_value_get_string(prop);
+          val.type = kPygValueStr;
+          val.value.str.str = str;
+          val.value.str.len = strlen(str);
+        }
+        break;
+      case JSONNumber:
+        val.type = kPygValueInt;
+        val.value.num = json_value_get_number(prop);
+        break;
+      default:
+        return pyg_error_str(kPygErrGYP,
+                             "`variables`[%d] is not string/integer",
+                             (int) i);
+    }
+
+    err = pyg_add_var(pyg, out, name, &val);
     if (!pyg_is_ok(err))
       return err;
   }
@@ -295,16 +315,16 @@ pyg_error_t pyg_load_variables(pyg_t* pyg,
 pyg_error_t pyg_add_var(pyg_t* pyg,
                         pyg_hashmap_t* vars,
                         const char* key,
-                        const char* value) {
+                        pyg_value_t* val) {
   pyg_error_t err;
   char key_st[1024];
   const char* ekey;
-  char* evalue;
   int len;
+  pyg_value_t* dup_val;
 
   /* Evaluate variable using all known variables at the point */
   /* TODO(indutny): ./pyg ... -D... -D... - how should this handle it? */
-  err = pyg_eval_str(pyg, vars, value, &evalue);
+  err = pyg_unroll_value(pyg, vars, val, &dup_val);
   if (!pyg_is_ok(err))
     return err;
 
@@ -323,9 +343,9 @@ pyg_error_t pyg_add_var(pyg_t* pyg,
     ekey = key;
   }
 
-  err = pyg_hashmap_cinsert(vars, ekey, evalue);
+  err = pyg_hashmap_cinsert(vars, ekey, dup_val);
   if (!pyg_is_ok(err))
-    free(evalue);
+    free(dup_val);
   return err;
 }
 
@@ -351,7 +371,6 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
     JSON_Array* pair;
     size_t pair_size;
     const char* test;
-    char* etest;
     int btest;
     JSON_Object* branch;
 
@@ -366,12 +385,8 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
     }
 
     test = json_array_get_string(pair, 0);
-    err = pyg_eval_str(pyg, vars, test, &etest);
-    if (!pyg_is_ok(err))
-      return err;
 
-    err = pyg_eval_test(pyg, vars, etest, &btest);
-    free(etest);
+    err = pyg_eval_test(pyg, vars, test, &btest);
     if (!pyg_is_ok(err))
       return err;
 

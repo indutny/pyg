@@ -388,3 +388,18 @@ char* pyg_filename(const char* path) {
   res[p - base] = '\0';
   return res;
 }
+
+
+int pyg_value_to_bool(pyg_value_t* val) {
+  switch (val->type) {
+    case kPygValueBool:
+      return val->value.num;
+    case kPygValueInt:
+      return val->value.num != 0;
+    case kPygValueStr:
+      return val->value.str.len != 0;
+    default:
+      UNREACHABLE();
+      return -1;
+  }
+}

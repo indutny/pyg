@@ -5,13 +5,6 @@
 #include <assert.h>
 #include <string.h>
 
-enum pyg_eval_state_e {
-  kPygEvalLT,
-  kPygEvalParenOpen,
-  kPygEvalName
-};
-typedef enum pyg_eval_state_e pyg_eval_state_t;
-
 enum pyg_lex_type_e {
   kPygLexNone,
   kPygLexWS,
@@ -23,14 +16,6 @@ enum pyg_lex_type_e {
 };
 typedef enum pyg_lex_type_e pyg_lex_type_t;
 
-static pyg_error_t pyg_eval_calc_size(pyg_t* pyg,
-                                      pyg_hashmap_t* vars,
-                                      const char* str,
-                                      int* out);
-static pyg_error_t pyg_eval_write(pyg_t* pyg,
-                                  pyg_hashmap_t* vars,
-                                  const char* str,
-                                  char* out);
 static pyg_error_t pyg_ast_lex(const char* str,
                                pyg_lex_type_t* out,
                                int* out_len);
@@ -46,151 +31,10 @@ static pyg_error_t pyg_ast_parse_binary(const char** str,
                                         pyg_ast_binary_op_t priority,
                                         pyg_ast_t** out);
 static pyg_error_t pyg_ast_parse_literal(const char** str, pyg_ast_t** out);
-
-
-pyg_error_t pyg_eval_str(pyg_t* pyg,
-                         pyg_hashmap_t* vars,
-                         const char* str,
-                         char** out) {
-  pyg_error_t err;
-  char* res;
-  int size;
-
-  err = pyg_eval_calc_size(pyg, vars, str, &size);
-  if (!pyg_is_ok(err))
-    return err;
-
-  res = malloc(size + 1);
-  if (res == NULL)
-    return pyg_error_str(kPygErrNoMem, "Failed to malloc() eval result");
-
-  err = pyg_eval_write(pyg, vars, str, res);
-  if (!pyg_is_ok(err)) {
-    free(res);
-    return err;
-  }
-
-  *out = res;
-  return pyg_ok();
-}
-
-
-pyg_error_t pyg_eval_calc_size(pyg_t* pyg,
-                               pyg_hashmap_t* vars,
-                               const char* str,
-                               int* out) {
-  pyg_eval_state_t st;
-  const char* p;
-  const char* mark;
-  int sz;
-
-  st = kPygEvalLT;
-  sz = 0;
-  for (p = str; *p != '\0'; p++, sz++) {
-    char ch;
-    const char* value;
-
-    ch = *p;
-    switch (st) {
-      case kPygEvalLT:
-        if (ch != '<')
-          break;
-        st = kPygEvalParenOpen;
-        break;
-      case kPygEvalParenOpen:
-        if (ch != '(') {
-          st = kPygEvalLT;
-        } else {
-          st = kPygEvalName;
-          mark = p + 1;
-        }
-        break;
-      case kPygEvalName:
-        if (ch != ')')
-          break;
-        st = kPygEvalLT;
-        value = pyg_hashmap_get(vars, mark, p - mark);
-        if (value == NULL && vars != &pyg->vars)
-          value = pyg_hashmap_get(&pyg->vars, mark, p - mark);
-        if (value == NULL) {
-          return pyg_error_str(kPygErrGYP,
-                               "variable `%.*s` not found",
-                               p - mark,
-                               mark);
-        }
-        sz -= (p - mark) + 3;
-        sz += strlen(value);
-        break;
-    }
-  }
-
-  *out = sz;
-  return pyg_ok();
-}
-
-
-pyg_error_t pyg_eval_write(pyg_t* pyg,
-                           pyg_hashmap_t* vars,
-                           const char* str,
-                           char* out) {
-  pyg_eval_state_t st;
-  const char* p;
-  char* pout;
-  const char* mark;
-  int sz;
-
-  st = kPygEvalLT;
-  sz = 0;
-  pout = out;
-  for (p = str; *p != '\0'; p++, sz++) {
-    char ch;
-
-    ch = *p;
-    switch (st) {
-      case kPygEvalLT:
-        if (ch != '<')
-          break;
-        st = kPygEvalParenOpen;
-        break;
-      case kPygEvalParenOpen:
-        if (ch != '(') {
-          st = kPygEvalLT;
-        } else {
-          st = kPygEvalName;
-          mark = p + 1;
-        }
-        break;
-      case kPygEvalName:
-        {
-          int len;
-          const char* value;
-          if (ch != ')')
-            continue;
-
-          value = pyg_hashmap_get(vars, mark, p - mark);
-          if (value == NULL && vars != &pyg->vars)
-            value = pyg_hashmap_get(&pyg->vars, mark, p - mark);
-          assert(value != NULL);
-
-          /* Revert `<(` */
-          pout -= 2;
-          len = strlen(value);
-          memcpy(pout, value, len);
-          pout += len;
-
-          st = kPygEvalLT;
-          /* Skip copying `)` */
-          continue;
-        }
-    }
-
-    *pout = ch;
-    pout++;
-  }
-  *pout = '\0';
-
-  return pyg_ok();
-}
+static pyg_error_t pyg_eval_ast(pyg_t* pyg,
+                                pyg_hashmap_t* vars,
+                                pyg_ast_t* ast,
+                                pyg_value_t* out);
 
 
 pyg_error_t pyg_ast_lex(const char* str, pyg_lex_type_t* out, int* out_len) {
@@ -529,11 +373,128 @@ pyg_error_t pyg_eval_test(pyg_t* pyg,
                           int* out) {
   pyg_error_t err;
   pyg_ast_t* ast;
+  pyg_value_t val;
 
   err = pyg_ast_parse(str, &ast);
   if (!pyg_is_ok(err))
     return err;
 
-  *out = 1;
+  err = pyg_eval_ast(pyg, vars, ast, &val);
+  pyg_ast_free(ast);
+
+  *out = pyg_value_to_bool(&val);
+  return err;
+}
+
+
+pyg_error_t pyg_eval_ast(pyg_t* pyg,
+                         pyg_hashmap_t* vars,
+                         pyg_ast_t* ast,
+                         pyg_value_t* out) {
+  pyg_error_t err;
+  pyg_value_t left;
+  pyg_value_t right;
+  pyg_ast_binary_t* b;
+  int res;
+
+  if (ast->type == kPygAstName) {
+    pyg_value_t* res;
+    const char* key;
+    int len;
+
+    key = ast->value.str.str;
+    len = ast->value.str.len;
+
+    res = pyg_hashmap_get(vars, key, len);
+    if (res == NULL)
+      res = pyg_hashmap_get(&pyg->vars, key, len);
+    if (res == NULL) {
+      return pyg_error_str(kPygErrGYP,
+                           "Variable `%.*s` not found",
+                           len,
+                           key);
+    }
+
+    *out = *res;
+    return pyg_ok();
+  }
+
+  if (ast->type == kPygAstStr) {
+    out->type = kPygValueStr;
+    out->value.str = ast->value.str;
+    return pyg_ok();
+  }
+
+  if (ast->type == kPygAstInt) {
+    out->type = kPygValueInt;
+    out->value.num = ast->value.num;
+    return pyg_ok();
+  }
+
+  b = &ast->value.binary;
+  err = pyg_eval_ast(pyg, vars, b->left, &left);
+  if (!pyg_is_ok(err))
+    return err;
+
+  err = pyg_eval_ast(pyg, vars, b->right, &right);
+  if (!pyg_is_ok(err))
+    return err;
+
+  /* Can't compare different types */
+  if (left.type != right.type)
+    return pyg_error_str(kPygErrGYP, "Can\'t operate on different types");
+
+  switch (b->op) {
+    case kPygAstBinaryEq:
+    case kPygAstBinaryNotEq:
+      if (left.type == kPygValueStr) {
+        int len;
+
+        len = left.value.str.len;
+        if (len != right.value.str.len)
+          res = 0;
+        else
+          res = strncmp(left.value.str.str, right.value.str.str, len) == 0;
+      } else {
+        res = left.value.num == right.value.num;
+      }
+      if (b->op == kPygAstBinaryNotEq)
+        res = res == 0 ? 1 : 0;
+      break;
+    case kPygAstBinaryLT:
+    case kPygAstBinaryGTE:
+    case kPygAstBinaryLTE:
+    case kPygAstBinaryGT:
+      if (left.type == kPygValueInt) {
+        if (b->op == kPygAstBinaryLT || b->op == kPygAstBinaryGTE)
+          res = left.value.num < right.value.num;
+        else if (b->op == kPygAstBinaryGT || b->op == kPygAstBinaryLTE)
+          res = left.value.num > right.value.num;
+      } else {
+        /* `>`, `<` on non-int */
+        return pyg_error_str(kPygErrGYP, "Invalid input for comparison");
+      }
+      if (b->op == kPygAstBinaryGTE || b->op == kPygAstBinaryLTE)
+        res = res == 0 ? 1 : 0;
+      break;
+    case kPygAstBinaryAnd:
+    case kPygAstBinaryOr:
+      /* Should we skip evaluating other side? */
+      if (left.type == kPygValueBool) {
+        if (b->op == kPygAstBinaryOr)
+          res = left.value.num | right.value.num;
+        else
+          res = left.value.num & right.value.num;
+      } else {
+        return pyg_error_str(kPygErrGYP, "Invalid input for and/or");
+      }
+      break;
+    default:
+      UNREACHABLE();
+      break;
+  }
+
+  out->type = kPygValueBool;
+  out->value.num = res;
   return pyg_ok();
 }

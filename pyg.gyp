@@ -22,6 +22,7 @@
       "src/cli.c",
       "src/json.c",
       "src/eval.c",
+      "src/unroll.c",
     ]
   }, {
     "target_name": "parson",

@@ -8,7 +8,6 @@ struct pyg_s;
 
 typedef struct pyg_ast_s pyg_ast_t;
 typedef struct pyg_ast_binary_s pyg_ast_binary_t;
-typedef struct pyg_ast_str_s pyg_ast_str_t;
 
 enum pyg_ast_binary_op_e {
   kPygAstBinaryEq,
@@ -38,11 +37,6 @@ struct pyg_ast_binary_s {
   pyg_ast_t* right;
 };
 
-struct pyg_ast_str_s {
-  const char* str;
-  int len;
-};
-
 enum pyg_ast_type_e {
   kPygAstBinary,
   kPygAstName,
@@ -55,15 +49,10 @@ struct pyg_ast_s {
   pyg_ast_type_t type;
   union {
     pyg_ast_binary_t binary;
-    pyg_ast_str_t str;
+    pyg_str_t str;
     int num;
   } value;
 };
-
-pyg_error_t pyg_eval_str(struct pyg_s* pyg,
-                         pyg_hashmap_t* vars,
-                         const char* str,
-                         char** out);
 
 pyg_error_t pyg_ast_parse(const char* str, pyg_ast_t** out);
 void pyg_ast_free(pyg_ast_t* ast);

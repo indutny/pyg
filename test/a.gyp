@@ -1,7 +1,10 @@
 {
   "variables": {
     "hello": "ohai",
-    "ok": "abc <(hello) def"
+    "ok": "abc <(hello) def",
+    "xkcd": "great",
+    "spam": 1,
+    "sink": 23
   },
   "targets": [{
     'target_name': "a",
