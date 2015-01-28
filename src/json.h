@@ -35,5 +35,6 @@ pyg_error_t pyg_unroll_json(pyg_proto_hashmap_t* vars, JSON_Value** out);
 pyg_error_t pyg_unroll_json_key(pyg_proto_hashmap_t* vars,
                                 JSON_Object* obj,
                                 const char* key);
+pyg_error_t pyg_stringify_json(JSON_Value* value, char** out);
 
 #endif  /* SRC_JSON_H_ */

@@ -1,6 +1,7 @@
 #include "src/generator/ninja.h"
 #include "src/common.h"
 #include "src/pyg.h"
+#include "src/json.h"
 
 #include <limits.h>  /* PATH_MAX */
 #include <string.h>
@@ -87,9 +88,10 @@ pyg_error_t pyg_gen_ninja_print_rules(pyg_target_t* target,
   JSON_Array* arr;
   size_t i;
   size_t count;
-  const char* cflags;
-  const char* ldflags;
+  char* cflags;
+  char* ldflags;
   static const int types[] = { kPygSourceC, kPygSourceCXX };
+  pyg_error_t err;
 
   /* Include dirs */
   CHECKED_PRINT("\n%s =", pyg_gen_ninja_cmd(target, "include_dirs"));
@@ -124,15 +126,30 @@ pyg_error_t pyg_gen_ninja_print_rules(pyg_target_t* target,
   CHECKED_PRINT("\n");
 
   /* cflags, ldflags */
-  /* TODO(indutny): cflags/ldflags could be arrays */
-  cflags = json_object_get_string(target->json, "cflags");
-  ldflags = json_object_get_string(target->json, "ldflags");
-  if (cflags == NULL)
-    cflags = "";
-  if (ldflags == NULL)
-    ldflags = "";
-  CHECKED_PRINT("%s = %s\n", pyg_gen_ninja_cmd(target, "cflags"), cflags);
-  CHECKED_PRINT("%s = %s\n\n", pyg_gen_ninja_cmd(target, "ldflags"), ldflags);
+  cflags = NULL;
+  ldflags = NULL;
+  err = pyg_stringify_json(json_object_get_value(target->json, "cflags"),
+                           &cflags);
+  if (pyg_is_ok(err)) {
+    err = pyg_stringify_json(json_object_get_value(target->json, "ldflags"),
+                             &ldflags);
+  }
+  if (pyg_is_ok(err)) {
+    err = pyg_buf_put(settings->out,
+                      "%s = %s\n",
+                      pyg_gen_ninja_cmd(target, "cflags"),
+                      cflags);
+  }
+  if (pyg_is_ok(err)) {
+    err = pyg_buf_put(settings->out,
+                      "%s = %s\n",
+                      pyg_gen_ninja_cmd(target, "ldflags"),
+                      ldflags);
+  }
+  free(cflags);
+  free(ldflags);
+  if (!pyg_is_ok(err))
+    return err;
 
   for (i = 0; i < ARRAY_SIZE(types); i++) {
     int type = types[i];

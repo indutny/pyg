@@ -394,3 +394,74 @@ pyg_error_t pyg_unroll_json_key(pyg_proto_hashmap_t* vars,
 
   return pyg_ok();
 }
+
+
+pyg_error_t pyg_stringify_json(JSON_Value* value, char** out) {
+  if (value == NULL) {
+    *out = strdup("");
+    goto done;
+  }
+
+  switch (json_value_get_type(value)) {
+    case JSONString:
+      *out = strdup(json_value_get_string(value));
+      break;
+    case JSONArray:
+      {
+        JSON_Array* arr;
+        size_t i;
+        size_t count;
+        int size;
+        char* p;
+
+        arr = json_value_get_array(value);
+        count = json_array_get_count(arr);
+        size = count == 0 ? 0 : (count - 1) * 2;
+        for (i = 0; i < count; i++) {
+          const char* str;
+
+          str = json_array_get_string(arr, i);
+          /* TODO(indutny): support non-strings */
+          if (str != NULL)
+            size += strlen(str);
+        }
+
+        *out = malloc(size + 1);
+        if (*out == NULL)
+          break;
+
+        p = *out;
+        for (i = 0; i < count; i++) {
+          const char* str;
+          int len;
+
+          str = json_array_get_string(arr, i);
+          if (str == NULL)
+            continue;
+
+          /* Separator */
+          if (i != 0) {
+            p[0] = ',';
+            p[1] = ' ';
+            p += 2;
+          }
+
+          /* Value */
+          len = strlen(str);
+          memcpy(p, str, len);
+          p += len;
+        }
+
+        *p = '\0';
+      }
+    default:
+      /* TODO(indutny): support objects and numbers */
+      UNREACHABLE();
+  }
+
+done:
+  if (*out == NULL)
+    return pyg_error_str(kPygErrNoMem, "failed to stringify JSON");
+
+  return pyg_ok();
+}
