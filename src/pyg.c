@@ -455,6 +455,8 @@ pyg_error_t pyg_load_targets(pyg_t* pyg) {
     err = pyg_resolve_json(target, target->json, "sources");
     if (pyg_is_ok(err))
       err = pyg_resolve_json(target, target->json, "include_dirs");
+
+    /* TODO(indutny): cflags/ldflags could be arrays */
     if (pyg_is_ok(err))
       err = pyg_unroll_json(target, target->json, "cflags");
     if (pyg_is_ok(err))

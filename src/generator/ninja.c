@@ -124,6 +124,7 @@ pyg_error_t pyg_gen_ninja_print_rules(pyg_target_t* target,
   CHECKED_PRINT("\n");
 
   /* cflags, ldflags */
+  /* TODO(indutny): cflags/ldflags could be arrays */
   cflags = json_object_get_string(target->json, "cflags");
   ldflags = json_object_get_string(target->json, "ldflags");
   if (cflags == NULL)
