@@ -1,4 +1,5 @@
 #include "src/pyg.h"
+#include "src/pyg-internal.h"
 #include "src/common.h"
 #include "src/eval.h"
 #include "src/generator/base.h"
@@ -267,46 +268,57 @@ pyg_error_t pyg_load_variables(pyg_t* pyg,
   for (i = 0; i < count; i++) {
     pyg_error_t err;
     const char* name;
-    int len;
     const char* str;
-    char* value;
-    char key_st[1024];
-    const char* key;
 
     name = json_object_get_name(vars, i);
-    len = strlen(name);
 
     str = json_object_get_string(vars, name);
     if (str == NULL)
       return pyg_error_str(kPygErrGYP, "`variables`[%d] not string", (int) i);
 
-    /* Evaluate variable using all known variables at the point */
-    /* TODO(indutny): ./pyg ... -D... -D... - how should this handle it? */
-    err = pyg_eval_str(pyg, out, str, &value);
+    err = pyg_add_var(pyg, out, name, str);
     if (!pyg_is_ok(err))
       return err;
-
-    /* Default value */
-    if (name[len - 1] == '%') {
-      key = key_st;
-      snprintf(key_st, sizeof(key_st), "%.*s", len - 1, name);
-
-      if (pyg_hashmap_cget(out, key) != NULL)
-        continue;
-      if (pyg_hashmap_cget(&pyg->vars, key) != NULL)
-        continue;
-    } else {
-      key = name;
-    }
-
-    err = pyg_hashmap_cinsert(out, key, value);
-    if (!pyg_is_ok(err)) {
-      free(value);
-      return err;
-    }
   }
 
   return pyg_ok();
+}
+
+
+pyg_error_t pyg_add_var(pyg_t* pyg,
+                        pyg_hashmap_t* vars,
+                        const char* key,
+                        const char* value) {
+  pyg_error_t err;
+  char key_st[1024];
+  const char* ekey;
+  char* evalue;
+  int len;
+
+  /* Evaluate variable using all known variables at the point */
+  /* TODO(indutny): ./pyg ... -D... -D... - how should this handle it? */
+  err = pyg_eval_str(pyg, vars, value, &evalue);
+  if (!pyg_is_ok(err))
+    return err;
+
+  len = strlen(key);
+
+  /* Default value */
+  if (key[len - 1] == '%') {
+    ekey = key_st;
+    snprintf(key_st, sizeof(key_st), "%.*s", len - 1, key);
+
+    if (pyg_hashmap_cget(vars, ekey) != NULL)
+      return pyg_ok();
+    if (pyg_hashmap_cget(&pyg->vars, ekey) != NULL)
+      return pyg_ok();
+  } else {
+    ekey = key;
+  }
+
+  err = pyg_hashmap_cinsert(vars, ekey, evalue);
+  free(evalue);
+  return err;
 }
 
 
