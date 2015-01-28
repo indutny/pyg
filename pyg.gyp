@@ -1,4 +1,7 @@
 {
+  "variables": {
+    "cflags": "-g3 -O0 -std=c99 -Wall -Wextra -Wno-unused-parameter -pedantic"
+  },
   "targets": [{
     "target_name": "pyg",
     "type": "executable",
@@ -12,7 +15,7 @@
       "deps/parson",
     ],
 
-    "cflags": "-g3 -O0 -std=c99 -Wall -Wextra -Wno-unused-parameter -pedantic",
+    "cflags": "<(cflags)",
 
     "sources": [
       "src/common.c",
@@ -32,7 +35,7 @@
       "deps/parson",
     ],
 
-    "cflags": "-g3 -O0 -std=c99 -Wall -Wextra -Wno-unused-parameter -pedantic",
+    "cflags": "<(cflags)",
 
     "sources": [
       "deps/parson/parson.c",
