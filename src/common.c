@@ -439,7 +439,7 @@ pyg_error_t pyg_value_to_str(pyg_value_t* val, char** out) {
       }
       break;
     case kPygValueStr:
-      res = malloc(val->value.str.len);
+      res = malloc(val->value.str.len + 1);
       if (res != NULL) {
         memcpy(res, val->value.str.str, val->value.str.len);
         res[val->value.str.len] = '\0';

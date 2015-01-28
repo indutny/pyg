@@ -45,6 +45,7 @@ pyg_error_t pyg_unroll_value(pyg_proto_hashmap_t* vars,
   if (res == NULL)
     return pyg_error_str(kPygErrNoMem, "Failed to malloc() unroll result");
 
+  res->type = kPygValueStr;
   res->value.str.str = (char*) res + sizeof(*res);
   res->value.str.len = size;
   err = pyg_unroll_write(vars, &input->value.str, (char*) res->value.str.str);
@@ -77,6 +78,8 @@ pyg_error_t pyg_unroll_str(pyg_proto_hashmap_t* vars,
   if (res == NULL)
     return pyg_error_str(kPygErrNoMem, "Failed to malloc() unroll result");
 
+  fprintf(stderr, "%.*s => %d\n", str.len, str.str, size);
+
   err = pyg_unroll_write(vars, &str, res);
   if (!pyg_is_ok(err)) {
     free(res);
@@ -101,8 +104,10 @@ pyg_error_t pyg_unroll_calc_size(pyg_proto_hashmap_t* vars,
   sz = 0;
   end = str->str + str->len;
   for (p = str->str; p != end; p++, sz++) {
+    pyg_error_t err;
     char ch;
-    const char* value;
+    pyg_value_t* value;
+    char* str_value;
 
     ch = *p;
     switch (st) {
@@ -130,8 +135,14 @@ pyg_error_t pyg_unroll_calc_size(pyg_proto_hashmap_t* vars,
                                p - mark,
                                mark);
         }
+
+        err = pyg_value_to_str(value, &str_value);
+        if (!pyg_is_ok(err))
+          return err;
+
         sz -= (p - mark) + 3;
-        sz += strlen(value);
+        sz += strlen(str_value);
+        free(str_value);
         break;
     }
   }
@@ -164,15 +175,18 @@ pyg_error_t pyg_unroll_write(pyg_proto_hashmap_t* vars,
         if (ch != '<')
           break;
         st = kPygUnrollParenOpen;
-        break;
+        continue;
       case kPygUnrollParenOpen:
         if (ch != '(') {
+          *pout = '<';
+          pout++;
           st = kPygUnrollLT;
+          break;
         } else {
           st = kPygUnrollName;
           mark = p + 1;
+          continue;
         }
-        break;
       case kPygUnrollName:
         {
           pyg_error_t err;
@@ -190,8 +204,6 @@ pyg_error_t pyg_unroll_write(pyg_proto_hashmap_t* vars,
           if (!pyg_is_ok(err))
             return err;
 
-          /* Revert `<(` */
-          pout -= 2;
           len = strlen(str_value);
           memcpy(pout, str_value, len);
           pout += len;
