@@ -10,6 +10,8 @@ typedef struct pyg_error_s pyg_error_t;
     X(JSON)                                                                   \
     X(GYP)                                                                    \
     X(FS)                                                                     \
+    X(ASTWarn)                                                                \
+    X(ASTFatal)                                                               \
 
 #define PYG_DEFINE_ERROR(V) kPygErr##V,
 

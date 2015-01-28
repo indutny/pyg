@@ -16,7 +16,7 @@
     ],
 
     "conditions": [
-      ["hello == 'ohai'", {
+      ["hello == 'ohai' and xkcd != \"great\" || spam > 0 and sink != 42", {
         "sources": [
           "./ohai.c",
         ],
