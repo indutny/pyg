@@ -78,8 +78,6 @@ pyg_error_t pyg_unroll_str(pyg_proto_hashmap_t* vars,
   if (res == NULL)
     return pyg_error_str(kPygErrNoMem, "Failed to malloc() unroll result");
 
-  fprintf(stderr, "%.*s => %d\n", str.len, str.str, size);
-
   err = pyg_unroll_write(vars, &str, res);
   if (!pyg_is_ok(err)) {
     free(res);
