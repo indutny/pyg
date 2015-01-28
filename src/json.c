@@ -1,5 +1,6 @@
 #include "src/json.h"
 #include "src/common.h"
+#include "src/unroll.h"
 
 #include "parson.h"
 
@@ -325,4 +326,71 @@ pyg_error_t pyg_merge_json(JSON_Value* to,
                            JSON_Value* from,
                            pyg_merge_mode_t mode) {
   return pyg_merge_json_inplace(&to, from, mode);
+}
+
+
+pyg_error_t pyg_unroll_json(pyg_proto_hashmap_t* vars, JSON_Value** out) {
+  pyg_error_t err;
+  JSON_Value* value;
+
+  value = *out;
+  if (json_value_get_type(value) == JSONString) {
+    const char* str;
+    char* estr;
+
+    str = json_string(value);
+    err = pyg_unroll_str(vars, str, &estr);
+    if (!pyg_is_ok(err))
+      return err;
+
+    *out = json_value_init_string(estr);
+    free(estr);
+
+    if (*out == NULL)
+      return pyg_error_str(kPygErrNoMem, "failed to alloc string");
+  } else if (json_value_get_type(value) == JSONString) {
+    size_t i;
+    size_t count;
+    JSON_Array* arr;
+
+    arr = json_value_get_array(value);
+    count = json_array_get_count(arr);
+    for (i = 0; i < count; i++) {
+      JSON_Value* sub;
+      JSON_Value* new_sub;
+
+      sub = json_array_get_value(arr, i);
+      new_sub = sub;
+      pyg_unroll_json(vars, &new_sub);
+      if (sub == new_sub)
+        continue;
+
+      json_array_replace_value(arr, i, new_sub);
+    }
+  }
+
+  return pyg_ok();
+}
+
+
+pyg_error_t pyg_unroll_json_key(pyg_proto_hashmap_t* vars,
+                                JSON_Object* json,
+                                const char* key) {
+  pyg_error_t err;
+  JSON_Value* value;
+  JSON_Value* new_value;
+
+  value = json_object_get_value(json, key);
+  if (value == NULL)
+    return pyg_ok();
+
+  new_value = value;
+  err = pyg_unroll_json(vars, &new_value);
+  if (!pyg_is_ok(err))
+    return err;
+
+  if (new_value != value)
+    json_object_set_value(json, key, new_value);
+
+  return pyg_ok();
 }

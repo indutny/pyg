@@ -42,9 +42,6 @@ static pyg_error_t pyg_load_target_dep(void* val,
 static pyg_error_t pyg_resolve_json(pyg_target_t* pyg,
                                     JSON_Object* json,
                                     const char* key);
-static pyg_error_t pyg_unroll_json(pyg_target_t* pyg,
-                                   JSON_Object* json,
-                                   const char* key);
 static pyg_error_t pyg_target_type_from_str(const char* type,
                                             pyg_target_type_t* out);
 static pyg_error_t pyg_create_sources(pyg_target_t* target);
@@ -458,9 +455,9 @@ pyg_error_t pyg_load_targets(pyg_t* pyg) {
 
     /* TODO(indutny): cflags/ldflags could be arrays */
     if (pyg_is_ok(err))
-      err = pyg_unroll_json(target, target->json, "cflags");
+      err = pyg_unroll_json_key(&target->vars, target->json, "cflags");
     if (pyg_is_ok(err))
-      err = pyg_unroll_json(target, target->json, "ldflags");
+      err = pyg_unroll_json_key(&target->vars, target->json, "ldflags");
     if (!pyg_is_ok(err))
       return err;
 
@@ -716,35 +713,6 @@ pyg_error_t pyg_resolve_json(pyg_target_t* target,
     free(resolved);
     if (status != JSONSuccess)
       return pyg_error_str(kPygErrJSON, "Failed to insert string into array");
-  }
-
-  return pyg_ok();
-}
-
-
-pyg_error_t pyg_unroll_json(pyg_target_t* target,
-                            JSON_Object* json,
-                            const char* key) {
-  pyg_error_t err;
-  JSON_Value* value;
-
-  value = json_object_get_value(json, key);
-  if (value == NULL)
-    return pyg_ok();
-
-  if (json_value_get_type(value) == JSONString) {
-    const char* str;
-    char* estr;
-
-    str = json_string(value);
-    err = pyg_unroll_str(&target->vars, str, &estr);
-    if (!pyg_is_ok(err))
-      return err;
-
-    json_object_set_string(json, key, estr);
-    free(estr);
-  } else {
-    /* TODO(indutny): support arrays */
   }
 
   return pyg_ok();
