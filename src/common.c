@@ -215,6 +215,23 @@ void* pyg_hashmap_get(pyg_hashmap_t* hashmap,
 }
 
 
+void* pyg_proto_hashmap_get(pyg_proto_hashmap_t* hashmap,
+                            const char* key,
+                            unsigned int key_len) {
+  pyg_proto_hashmap_t* current;
+
+  for (current = hashmap; current != NULL; current = current->parent) {
+    void* res;
+
+    res = pyg_hashmap_get(&current->map, key, key_len);
+    if (res != NULL)
+      return res;
+  }
+
+  return NULL;
+}
+
+
 pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
                                 pyg_hashmap_iterate_cb cb,
                                 void* arg) {

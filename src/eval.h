@@ -3,9 +3,6 @@
 
 #include "src/common.h"
 
-/* Forward declarations */
-struct pyg_s;
-
 typedef struct pyg_ast_s pyg_ast_t;
 typedef struct pyg_ast_binary_s pyg_ast_binary_t;
 
@@ -57,8 +54,7 @@ struct pyg_ast_s {
 pyg_error_t pyg_ast_parse(const char* str, pyg_ast_t** out);
 void pyg_ast_free(pyg_ast_t* ast);
 
-pyg_error_t pyg_eval_test(struct pyg_s* pyg,
-                          pyg_hashmap_t* vars,
+pyg_error_t pyg_eval_test(pyg_proto_hashmap_t* vars,
                           const char* str,
                           int* out);
 

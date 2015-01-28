@@ -3,15 +3,10 @@
 
 #include "src/common.h"
 
-/* Forward declarations */
-struct pyg_s;
-
-pyg_error_t pyg_unroll_value(struct pyg_s* pyg,
-                             pyg_hashmap_t* vars,
+pyg_error_t pyg_unroll_value(pyg_proto_hashmap_t* vars,
                              pyg_value_t* input,
                              pyg_value_t** out);
-pyg_error_t pyg_unroll_str(struct pyg_s* pyg,
-                           pyg_hashmap_t* vars,
+pyg_error_t pyg_unroll_str(pyg_proto_hashmap_t* vars,
                            const char* input,
                            char** out);
 

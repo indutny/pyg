@@ -38,7 +38,7 @@ struct pyg_s {
     QUEUE list;
   } target;
 
-  pyg_hashmap_t vars;
+  pyg_proto_hashmap_t vars;
 
   QUEUE member;
 };
@@ -73,7 +73,7 @@ struct pyg_target_s {
     unsigned int count;
   } source;
 
-  pyg_hashmap_t vars;
+  pyg_proto_hashmap_t vars;
 };
 
 enum pyg_source_type_e {
@@ -92,7 +92,7 @@ typedef enum pyg_source_type_e pyg_source_type_t;
 
 struct pyg_source_s {
   pyg_source_type_t type;
-  const char* path;
+  char* path;
   char* out;
   char* filename;
 };

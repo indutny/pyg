@@ -1,6 +1,5 @@
 #include "src/eval.h"
 #include "src/common.h"
-#include "src/pyg.h"
 
 #include <assert.h>
 #include <string.h>
@@ -31,8 +30,7 @@ static pyg_error_t pyg_ast_parse_binary(const char** str,
                                         pyg_ast_binary_op_t priority,
                                         pyg_ast_t** out);
 static pyg_error_t pyg_ast_parse_literal(const char** str, pyg_ast_t** out);
-static pyg_error_t pyg_eval_ast(pyg_t* pyg,
-                                pyg_hashmap_t* vars,
+static pyg_error_t pyg_eval_ast(pyg_proto_hashmap_t* vars,
                                 pyg_ast_t* ast,
                                 pyg_value_t* out);
 
@@ -367,8 +365,7 @@ void pyg_ast_free(pyg_ast_t* ast) {
 }
 
 
-pyg_error_t pyg_eval_test(pyg_t* pyg,
-                          pyg_hashmap_t* vars,
+pyg_error_t pyg_eval_test(pyg_proto_hashmap_t* vars,
                           const char* str,
                           int* out) {
   pyg_error_t err;
@@ -379,7 +376,7 @@ pyg_error_t pyg_eval_test(pyg_t* pyg,
   if (!pyg_is_ok(err))
     return err;
 
-  err = pyg_eval_ast(pyg, vars, ast, &val);
+  err = pyg_eval_ast(vars, ast, &val);
   pyg_ast_free(ast);
 
   *out = pyg_value_to_bool(&val);
@@ -387,8 +384,7 @@ pyg_error_t pyg_eval_test(pyg_t* pyg,
 }
 
 
-pyg_error_t pyg_eval_ast(pyg_t* pyg,
-                         pyg_hashmap_t* vars,
+pyg_error_t pyg_eval_ast(pyg_proto_hashmap_t* vars,
                          pyg_ast_t* ast,
                          pyg_value_t* out) {
   pyg_error_t err;
@@ -405,9 +401,7 @@ pyg_error_t pyg_eval_ast(pyg_t* pyg,
     key = ast->value.str.str;
     len = ast->value.str.len;
 
-    res = pyg_hashmap_get(vars, key, len);
-    if (res == NULL)
-      res = pyg_hashmap_get(&pyg->vars, key, len);
+    res = pyg_proto_hashmap_get(vars, key, len);
     if (res == NULL) {
       return pyg_error_str(kPygErrGYP,
                            "Variable `%.*s` not found",
@@ -432,11 +426,11 @@ pyg_error_t pyg_eval_ast(pyg_t* pyg,
   }
 
   b = &ast->value.binary;
-  err = pyg_eval_ast(pyg, vars, b->left, &left);
+  err = pyg_eval_ast(vars, b->left, &left);
   if (!pyg_is_ok(err))
     return err;
 
-  err = pyg_eval_ast(pyg, vars, b->right, &right);
+  err = pyg_eval_ast(vars, b->right, &right);
   if (!pyg_is_ok(err))
     return err;
 

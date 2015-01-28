@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 typedef struct pyg_hashmap_s pyg_hashmap_t;
+typedef struct pyg_proto_hashmap_s pyg_proto_hashmap_t;
 typedef struct pyg_hashmap_item_s pyg_hashmap_item_t;
 typedef void (*pyg_hashmap_free_cb)(void*);
 typedef pyg_error_t (*pyg_hashmap_iterate_cb)(pyg_hashmap_item_t* item,
@@ -47,6 +48,11 @@ struct pyg_hashmap_s {
   unsigned int size;
 };
 
+struct pyg_proto_hashmap_s {
+  pyg_hashmap_t map;
+  pyg_proto_hashmap_t* parent;
+};
+
 struct pyg_hashmap_item_s {
   const char* key;
   unsigned int key_len;
@@ -66,6 +72,9 @@ void pyg_hashmap_delete(pyg_hashmap_t* hashmap,
 void* pyg_hashmap_get(pyg_hashmap_t* hashmap,
                       const char* key,
                       unsigned int key_len);
+void* pyg_proto_hashmap_get(pyg_proto_hashmap_t* hashmap,
+                            const char* key,
+                            unsigned int key_len);
 pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
                                 pyg_hashmap_iterate_cb cb,
                                 void* arg);
@@ -74,6 +83,8 @@ pyg_error_t pyg_hashmap_iterate(pyg_hashmap_t* hashmap,
     pyg_hashmap_insert((h), (k), strlen((k)), (v))
 #define pyg_hashmap_cdelete(h, k) pyg_hashmap_delete((h), (k), strlen((k)))
 #define pyg_hashmap_cget(h, k) pyg_hashmap_get((h), (k), strlen((k)))
+#define pyg_proto_hashmap_cget(h, k)                                          \
+    pyg_proto_hashmap_get((h), (k), strlen((k)))
 
 
 struct pyg_buf_s {

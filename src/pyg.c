@@ -25,10 +25,10 @@ static pyg_error_t pyg_free_var(pyg_hashmap_item_t* item, void* arg);
 static pyg_error_t pyg_load(pyg_t* pyg);
 static pyg_error_t pyg_load_variables(pyg_t* pyg,
                                       JSON_Object* json,
-                                      pyg_hashmap_t* out);
+                                      pyg_proto_hashmap_t* out);
 static pyg_error_t pyg_eval_conditions(pyg_t* pyg,
                                        JSON_Object* json,
-                                       pyg_hashmap_t* vars);
+                                       pyg_proto_hashmap_t* vars);
 static pyg_error_t pyg_load_targets(pyg_t* pyg);
 static pyg_error_t pyg_load_target(void* val,
                                    size_t i,
@@ -131,9 +131,10 @@ pyg_error_t pyg_new_child(const char* path, pyg_t* parent, pyg_t** out) {
 
   QUEUE_INIT(&res->target.list);
 
-  err = pyg_hashmap_init(&res->vars, kPygVarCount);
+  err = pyg_hashmap_init(&res->vars.map, kPygVarCount);
   if (!pyg_is_ok(err))
     goto failed_vars_init;
+  res->vars.parent = NULL;
 
   err = pyg_load(res);
   if (!pyg_is_ok(err)) {
@@ -192,8 +193,8 @@ void pyg_free(pyg_t* pyg) {
   pyg_hashmap_iterate(&pyg->target.map, pyg_free_target, NULL);
   pyg_hashmap_destroy(&pyg->target.map);
 
-  pyg_hashmap_iterate(&pyg->vars, pyg_free_var, NULL);
-  pyg_hashmap_destroy(&pyg->vars);
+  pyg_hashmap_iterate(&pyg->vars.map, pyg_free_var, NULL);
+  pyg_hashmap_destroy(&pyg->vars.map);
 
   json_value_free(pyg->json);
   json_value_free(pyg->clone);
@@ -222,9 +223,13 @@ pyg_error_t pyg_free_target(pyg_hashmap_item_t* item, void* arg) {
   QUEUE_REMOVE(&target->member);
 
   for (i = 0; i < target->source.count; i++) {
+    free(target->source.list[i].path);
     free(target->source.list[i].out);
     free(target->source.list[i].filename);
   }
+
+  pyg_hashmap_iterate(&target->vars.map, pyg_free_var, NULL);
+  pyg_hashmap_destroy(&target->vars.map);
 
   free(target->source.list);
   free(target->deps.list);
@@ -259,7 +264,7 @@ pyg_error_t pyg_load(pyg_t* pyg) {
 
 pyg_error_t pyg_load_variables(pyg_t* pyg,
                                JSON_Object* json,
-                               pyg_hashmap_t* out) {
+                               pyg_proto_hashmap_t* out) {
   size_t i;
   size_t count;
   JSON_Value* val;
@@ -313,7 +318,7 @@ pyg_error_t pyg_load_variables(pyg_t* pyg,
 
 
 pyg_error_t pyg_add_var(pyg_t* pyg,
-                        pyg_hashmap_t* vars,
+                        pyg_proto_hashmap_t* vars,
                         const char* key,
                         pyg_value_t* val) {
   pyg_error_t err;
@@ -324,7 +329,7 @@ pyg_error_t pyg_add_var(pyg_t* pyg,
 
   /* Evaluate variable using all known variables at the point */
   /* TODO(indutny): ./pyg ... -D... -D... - how should this handle it? */
-  err = pyg_unroll_value(pyg, vars, val, &dup_val);
+  err = pyg_unroll_value(vars, val, &dup_val);
   if (!pyg_is_ok(err))
     return err;
 
@@ -335,15 +340,13 @@ pyg_error_t pyg_add_var(pyg_t* pyg,
     ekey = key_st;
     snprintf(key_st, sizeof(key_st), "%.*s", len - 1, key);
 
-    if (pyg_hashmap_cget(vars, ekey) != NULL)
-      return pyg_ok();
-    if (pyg_hashmap_cget(&pyg->vars, ekey) != NULL)
+    if (pyg_proto_hashmap_cget(vars, ekey) != NULL)
       return pyg_ok();
   } else {
     ekey = key;
   }
 
-  err = pyg_hashmap_cinsert(vars, ekey, dup_val);
+  err = pyg_hashmap_cinsert(&vars->map, ekey, dup_val);
   if (!pyg_is_ok(err))
     free(dup_val);
   return err;
@@ -352,7 +355,7 @@ pyg_error_t pyg_add_var(pyg_t* pyg,
 
 pyg_error_t pyg_eval_conditions(pyg_t* pyg,
                                 JSON_Object* json,
-                                pyg_hashmap_t* vars) {
+                                pyg_proto_hashmap_t* vars) {
   size_t i;
   JSON_Value* val;
   JSON_Array* conds;
@@ -384,11 +387,11 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
     }
 
     test = json_array_get_string(pair, 0);
-    err = pyg_unroll_str(pyg, vars, test, &etest);
+    err = pyg_unroll_str(vars, test, &etest);
     if (!pyg_is_ok(err))
       return err;
 
-    err = pyg_eval_test(pyg, vars, etest, &btest);
+    err = pyg_eval_test(vars, etest, &btest);
     free(etest);
     if (!pyg_is_ok(err))
       return err;
@@ -482,9 +485,10 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   target->json = obj;
   QUEUE_INIT(&target->member);
 
-  err = pyg_hashmap_init(&target->vars, kPygVarCount);
+  err = pyg_hashmap_init(&target->vars.map, kPygVarCount);
   if (!pyg_is_ok(err))
     goto failed_init_vars;
+  target->vars.parent = &pyg->vars;
 
   err = pyg_load_variables(pyg, target->json, &target->vars);
   if (!pyg_is_ok(err))
@@ -543,7 +547,7 @@ failed_alloc_source:
   target->deps.list = NULL;
 
 failed_load_vars:
-  pyg_hashmap_destroy(&target->vars);
+  pyg_hashmap_destroy(&target->vars.map);
 
 failed_init_vars:
   free(target);
@@ -701,13 +705,18 @@ pyg_error_t pyg_create_sources(pyg_target_t* target) {
 
   arr = json_object_get_array(target->json, "sources");
   for (i = 0; i < target->source.count; i++) {
+    pyg_error_t err;
     pyg_source_t* src;
     const char* ext;
     int n;
 
     src = &target->source.list[i];
 
-    src->path = json_array_get_string(arr, i);
+    err = pyg_unroll_str(&target->vars,
+                         json_array_get_string(arr, i),
+                         &src->path);
+    if (!pyg_is_ok(err))
+      return err;
     ext = strrchr(src->path, '.');
 
     /* No extension - skip */

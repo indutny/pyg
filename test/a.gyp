@@ -4,7 +4,8 @@
     "ok": "abc <(hello) def",
     "xkcd": "great",
     "spam": 1,
-    "sink": 23
+    "sink": 23,
+    "src": "../src"
   },
   "targets": [{
     'target_name': "a",
@@ -15,7 +16,7 @@
     ],
 
     "sources": [
-      "../src/pyg.c",
+      "<(src)/pyg.c",
     ],
 
     "conditions": [

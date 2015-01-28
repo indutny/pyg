@@ -1,6 +1,5 @@
 #include "src/unroll.h"
 #include "src/common.h"
-#include "src/pyg.h"
 
 #include <assert.h>
 #include <string.h>
@@ -12,17 +11,14 @@ enum pyg_unroll_state_e {
 };
 typedef enum pyg_unroll_state_e pyg_unroll_state_t;
 
-static pyg_error_t pyg_unroll_calc_size(pyg_t* pyg,
-                                        pyg_hashmap_t* vars,
+static pyg_error_t pyg_unroll_calc_size(pyg_proto_hashmap_t* vars,
                                         pyg_str_t* str,
                                         int* out);
-static pyg_error_t pyg_unroll_write(pyg_t* pyg,
-                                    pyg_hashmap_t* vars,
+static pyg_error_t pyg_unroll_write(pyg_proto_hashmap_t* vars,
                                     pyg_str_t* str,
                                     char* out);
 
-pyg_error_t pyg_unroll_value(struct pyg_s* pyg,
-                             pyg_hashmap_t* vars,
+pyg_error_t pyg_unroll_value(pyg_proto_hashmap_t* vars,
                              pyg_value_t* input,
                              pyg_value_t** out) {
   pyg_error_t err;
@@ -40,7 +36,7 @@ pyg_error_t pyg_unroll_value(struct pyg_s* pyg,
     return pyg_ok();
   }
 
-  err = pyg_unroll_calc_size(pyg, vars, &input->value.str, &size);
+  err = pyg_unroll_calc_size(vars, &input->value.str, &size);
   if (!pyg_is_ok(err))
     return err;
 
@@ -51,10 +47,7 @@ pyg_error_t pyg_unroll_value(struct pyg_s* pyg,
 
   res->value.str.str = (char*) res + sizeof(*res);
   res->value.str.len = size;
-  err = pyg_unroll_write(pyg,
-                         vars,
-                         &input->value.str,
-                         (char*) res->value.str.str);
+  err = pyg_unroll_write(vars, &input->value.str, (char*) res->value.str.str);
   if (!pyg_is_ok(err)) {
     free(res);
     return err;
@@ -65,8 +58,7 @@ pyg_error_t pyg_unroll_value(struct pyg_s* pyg,
 }
 
 
-pyg_error_t pyg_unroll_str(struct pyg_s* pyg,
-                           pyg_hashmap_t* vars,
+pyg_error_t pyg_unroll_str(pyg_proto_hashmap_t* vars,
                            const char* input,
                            char** out) {
   pyg_error_t err;
@@ -76,7 +68,7 @@ pyg_error_t pyg_unroll_str(struct pyg_s* pyg,
 
   str.str = input;
   str.len = strlen(input);
-  err = pyg_unroll_calc_size(pyg, vars, &str, &size);
+  err = pyg_unroll_calc_size(vars, &str, &size);
   if (!pyg_is_ok(err))
     return err;
 
@@ -85,7 +77,7 @@ pyg_error_t pyg_unroll_str(struct pyg_s* pyg,
   if (res == NULL)
     return pyg_error_str(kPygErrNoMem, "Failed to malloc() unroll result");
 
-  err = pyg_unroll_write(pyg, vars, &str, res);
+  err = pyg_unroll_write(vars, &str, res);
   if (!pyg_is_ok(err)) {
     free(res);
     return err;
@@ -96,8 +88,7 @@ pyg_error_t pyg_unroll_str(struct pyg_s* pyg,
 }
 
 
-pyg_error_t pyg_unroll_calc_size(pyg_t* pyg,
-                                 pyg_hashmap_t* vars,
+pyg_error_t pyg_unroll_calc_size(pyg_proto_hashmap_t* vars,
                                  pyg_str_t* str,
                                  int* out) {
   pyg_unroll_state_t st;
@@ -132,9 +123,7 @@ pyg_error_t pyg_unroll_calc_size(pyg_t* pyg,
         if (ch != ')')
           break;
         st = kPygUnrollLT;
-        value = pyg_hashmap_get(vars, mark, p - mark);
-        if (value == NULL && vars != &pyg->vars)
-          value = pyg_hashmap_get(&pyg->vars, mark, p - mark);
+        value = pyg_proto_hashmap_get(vars, mark, p - mark);
         if (value == NULL) {
           return pyg_error_str(kPygErrGYP,
                                "variable `%.*s` not found",
@@ -152,8 +141,7 @@ pyg_error_t pyg_unroll_calc_size(pyg_t* pyg,
 }
 
 
-pyg_error_t pyg_unroll_write(pyg_t* pyg,
-                             pyg_hashmap_t* vars,
+pyg_error_t pyg_unroll_write(pyg_proto_hashmap_t* vars,
                              pyg_str_t* str,
                              char* out) {
   pyg_unroll_state_t st;
@@ -192,9 +180,7 @@ pyg_error_t pyg_unroll_write(pyg_t* pyg,
           if (ch != ')')
             continue;
 
-          value = pyg_hashmap_get(vars, mark, p - mark);
-          if (value == NULL && vars != &pyg->vars)
-            value = pyg_hashmap_get(&pyg->vars, mark, p - mark);
+          value = pyg_proto_hashmap_get(vars, mark, p - mark);
           assert(value != NULL);
 
           /* Revert `<(` */
