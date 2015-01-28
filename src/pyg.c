@@ -354,7 +354,6 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
                                 JSON_Object* json,
                                 pyg_hashmap_t* vars) {
   size_t i;
-  size_t count;
   JSON_Value* val;
   JSON_Array* conds;
 
@@ -365,8 +364,7 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
   if (conds == NULL)
     return pyg_error_str(kPygErrGYP, "`conditions` not array");
 
-  count = json_array_get_count(conds);
-  for (i = 0; i < count; i++) {
+  for (i = 0; i < json_array_get_count(conds); i++) {
     pyg_error_t err;
     JSON_Array* pair;
     size_t pair_size;
@@ -400,6 +398,15 @@ pyg_error_t pyg_eval_conditions(pyg_t* pyg,
                            "`conditions`[%d] branch not object",
                            (int) i);
     }
+
+    err = pyg_merge_json_obj(json, branch, kPygMergeAuto);
+    if (!pyg_is_ok(err))
+      return err;
+
+    /* Update variables from condition branch */
+    err = pyg_load_variables(pyg, branch, vars);
+    if (!pyg_is_ok(err))
+      return err;
   }
 
   return pyg_ok();
@@ -470,13 +477,26 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   target->json = obj;
   QUEUE_INIT(&target->member);
 
+  err = pyg_hashmap_init(&target->vars, kPygVarCount);
+  if (!pyg_is_ok(err))
+    goto failed_init_vars;
+
+  err = pyg_load_variables(pyg, target->json, &target->vars);
+  if (!pyg_is_ok(err))
+    goto failed_load_vars;
+
+  /* Need to eval it early because of the source list */
+  err = pyg_eval_conditions(pyg, target->json, &target->vars);
+  if (!pyg_is_ok(err))
+    goto failed_load_vars;
+
   /* Allocate space for dependencies */
   target->deps.count =
       json_array_get_count(json_object_get_array(obj, "dependencies"));
   target->deps.list = calloc(target->deps.count, sizeof(*target->deps.list));
   if (target->deps.list == NULL) {
     err = pyg_error_str(kPygErrNoMem, "pyg_target_t.deps");
-    goto failed_alloc_deps;
+    goto failed_load_vars;
   }
 
   /* Allocate space for source files */
@@ -502,27 +522,12 @@ pyg_error_t pyg_load_target(void* val, size_t i, size_t count, void* arg) {
   if (!pyg_is_ok(err))
     goto failed_target_name;
 
-  err = pyg_hashmap_init(&target->vars, kPygVarCount);
-  if (!pyg_is_ok(err))
-    goto failed_target_name;
-
-  err = pyg_load_variables(pyg, target->json, &target->vars);
-  if (!pyg_is_ok(err))
-    goto failed_cinsert;
-
-  err = pyg_eval_conditions(pyg, target->json, &target->vars);
-  if (!pyg_is_ok(err))
-    goto failed_cinsert;
-
   err = pyg_hashmap_cinsert(&pyg->target.map, name, target);
   if (!pyg_is_ok(err))
-    goto failed_cinsert;
+    goto failed_target_name;
   QUEUE_INSERT_TAIL(&pyg->target.list, &target->member);
 
   return pyg_ok();
-
-failed_cinsert:
-  pyg_hashmap_destroy(&target->vars);
 
 failed_target_name:
   free(target->source.list);
@@ -532,7 +537,10 @@ failed_alloc_source:
   free(target->deps.list);
   target->deps.list = NULL;
 
-failed_alloc_deps:
+failed_load_vars:
+  pyg_hashmap_destroy(&target->vars);
+
+failed_init_vars:
   free(target);
 
   return err;

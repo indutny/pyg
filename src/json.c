@@ -8,9 +8,6 @@
 static pyg_error_t pyg_merge_json_inplace(JSON_Value** to,
                                           JSON_Value* from,
                                           pyg_merge_mode_t mode);
-static pyg_error_t pyg_merge_json_obj(JSON_Value** to,
-                                      JSON_Value* from,
-                                      pyg_merge_mode_t mode);
 static pyg_error_t pyg_merge_json_arr(JSON_Value** to,
                                       JSON_Value* from,
                                       pyg_merge_mode_t mode);
@@ -72,7 +69,7 @@ pyg_error_t pyg_merge_json_inplace(JSON_Value** to,
     return pyg_ok();
 
   if (json_value_get_type(from) == JSONObject)
-    return pyg_merge_json_obj(to, from, mode);
+    return pyg_merge_json_obj(json_object(*to), json_object(from), mode);
   else if (json_value_get_type(from) == JSONArray)
     return pyg_merge_json_arr(to, from, mode);
 
@@ -110,29 +107,25 @@ skip:
 }
 
 
-pyg_error_t pyg_merge_json_obj(JSON_Value** to,
-                               JSON_Value* from,
+pyg_error_t pyg_merge_json_obj(JSON_Object* to,
+                               JSON_Object* from,
                                pyg_merge_mode_t mode) {
   size_t i;
   size_t count;
   JSON_Status st;
   pyg_error_t err;
-  JSON_Object* from_obj;
-  JSON_Object* to_obj;
 
-  from_obj = json_value_get_object(from);
-  to_obj = json_value_get_object(*to);
-
-  count = json_object_get_count(from_obj);
+  count = json_object_get_count(from);
   for (i = 0; i < count; i++) {
     const char* name;
     JSON_Value* from_value;
     JSON_Value* to_value;
+    JSON_Value* new_to_value;
 
-    name = json_object_get_name(from_obj, i);
-    from_value = json_object_get_value(from_obj, name);
+    name = json_object_get_name(from, i);
+    from_value = json_object_get_value(from, name);
 
-    to_value = json_object_get_value(to_obj, pyg_merge_classify(name, &mode));
+    to_value = json_object_get_value(to, pyg_merge_classify(name, &mode));
 
     /* New property */
     if (to_value == NULL) {
@@ -140,7 +133,7 @@ pyg_error_t pyg_merge_json_obj(JSON_Value** to,
       if (!pyg_is_ok(err))
         return err;
 
-      st = json_object_set_value(to_obj,
+      st = json_object_set_value(to,
                                  pyg_merge_classify(name, &mode),
                                  from_value);
       if (st != JSONSuccess) {
@@ -151,11 +144,15 @@ pyg_error_t pyg_merge_json_obj(JSON_Value** to,
       continue;
     }
 
-    err = pyg_merge_json_inplace(&to_value, from_value, mode);
+    new_to_value = to_value;
+    err = pyg_merge_json_inplace(&new_to_value, from_value, mode);
     if (!pyg_is_ok(err))
       return err;
 
-    st = json_object_set_value(to_obj, name, to_value);
+    if (new_to_value == to_value)
+      continue;
+
+    st = json_object_set_value(to, name, to_value);
     if (st != JSONSuccess)
       return pyg_error_str(kPygErrNoMem, "Failed to merge JSON (%s)", name);
   }

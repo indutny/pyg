@@ -24,6 +24,9 @@ pyg_error_t pyg_iter_array(JSON_Array* arr,
 pyg_error_t pyg_merge_json(JSON_Value* to,
                            JSON_Value* from,
                            pyg_merge_mode_t mode);
+pyg_error_t pyg_merge_json_obj(JSON_Object* to,
+                               JSON_Object* from,
+                               pyg_merge_mode_t mode);
 pyg_error_t pyg_clone_json(JSON_Value* value,
                            pyg_merge_mode_t mode,
                            JSON_Value** out);
