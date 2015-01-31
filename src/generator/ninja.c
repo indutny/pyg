@@ -185,8 +185,8 @@ pyg_error_t pyg_gen_ninja_print_rules(pyg_target_t* target,
   }
 
   CHECKED_PRINT("rule %s\n", pyg_gen_ninja_cmd(target, "ar"));
-  CHECKED_PRINT("  command = libtool -static -o $out $in\n");
-  CHECKED_PRINT("  description = LIBTOOL-STATIC $out\n\n");
+  CHECKED_PRINT("  command = ar rsc $out $in\n");
+  CHECKED_PRINT("  description = AR $out\n\n");
 
   return pyg_ok();
 }

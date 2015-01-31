@@ -25,8 +25,8 @@ rule ld_pyg_0
   description = LINK $out
 
 rule ar_pyg_0
-  command = libtool -static -o $out $in
-  description = LIBTOOL-STATIC $out
+  command = ar rsc $out $in
+  description = AR $out
 
 build build/0/pyg/common_0.o: cc_pyg_0 src/common.c
 build build/0/pyg/error_1.o: cc_pyg_0 src/error.c
@@ -57,8 +57,8 @@ rule ld_parson_0
   description = LINK $out
 
 rule ar_parson_0
-  command = libtool -static -o $out $in
-  description = LIBTOOL-STATIC $out
+  command = ar rsc $out $in
+  description = AR $out
 
 build build/0/parson/parson_0.o: cc_parson_0 deps/parson/parson.c
 build build/0/parson/parson.a: ar_parson_0 build/0/parson/parson_0.o
