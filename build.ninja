@@ -8,7 +8,7 @@ rule copy
   command = ln -f $in $out 2>/dev/null || (rm -rf $out && cp -af $in $out)
   description = COPY $out
 
-include_dirs_pyg_0 = -I/Users/indutny/Code/indutny/pyg -I/Users/indutny/Code/indutny/pyg/deps/parson
+include_dirs_pyg_0 = -I. -Ideps/parson
 defines_pyg_0 =
 libs_pyg_0 =
 cflags_pyg_0 = -g3 -O0 -std=c99 -Wall -Wextra -Wno-unused-parameter -pedantic
@@ -40,7 +40,7 @@ build build/0/pyg/pyg: ld_pyg_0 build/0/pyg/common_0.o build/0/pyg/error_1.o bui
 build build/pyg: copy build/0/pyg/pyg
 build pyg: phony build/pyg
 
-include_dirs_parson_0 = -I/Users/indutny/Code/indutny/pyg/deps/parson
+include_dirs_parson_0 = -Ideps/parson
 defines_parson_0 =
 libs_parson_0 =
 cflags_parson_0 = -g3 -O0 -std=c99 -Wall -Wextra -Wno-unused-parameter -pedantic

@@ -99,8 +99,11 @@ pyg_error_t pyg_gen_ninja_print_rules(pyg_target_t* target,
   count = json_array_get_count(arr);
 
   /* TODO(indutny): MSVC support */
-  for (i = 0; i < count; i++)
-    CHECKED_PRINT(" -I%s", json_array_get_string(arr, i));
+  for (i = 0; i < count; i++) {
+    CHECKED_PRINT(" -I%s",
+                  pyg_gen_ninja_src_path(json_array_get_string(arr, i),
+                                         settings));
+  }
 
   /* Defines */
   CHECKED_PRINT("\n%s =", pyg_gen_ninja_cmd(target, "defines"));
@@ -351,6 +354,9 @@ const char* pyg_gen_ninja_src_path(const char* path, pyg_settings_t* settings) {
 
   if (memcmp(settings->deprefix, path, dlen) != 0)
     return path;
+
+  if (path[dlen] == '\0')
+    return ".";
 
   /* Skip prefix and `/` */
   return path + dlen + 1;
