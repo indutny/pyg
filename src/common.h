@@ -7,6 +7,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef __linux__
+# include <linux/limits.h>  /* PATH_MAX */
+#else
+# include <limits.h>  /* PATH_MAX */
+#endif  /* __linux__ */
 
 typedef struct pyg_hashmap_s pyg_hashmap_t;
 typedef struct pyg_proto_hashmap_s pyg_proto_hashmap_t;
