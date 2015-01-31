@@ -3,7 +3,6 @@
 #include "src/pyg.h"
 #include "src/json.h"
 
-#include <limits.h>  /* PATH_MAX */
 #include <string.h>
 
 #define CHECKED_PRINT(...)                                                    \

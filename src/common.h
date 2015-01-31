@@ -8,6 +8,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <limits.h>
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
 typedef struct pyg_hashmap_s pyg_hashmap_t;
 typedef struct pyg_proto_hashmap_s pyg_proto_hashmap_t;
 typedef struct pyg_hashmap_item_s pyg_hashmap_item_t;
